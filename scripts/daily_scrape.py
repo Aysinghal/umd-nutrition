@@ -28,7 +28,7 @@ def main() -> int:
     parser.add_argument("--days", type=int, default=7, help="days ahead, from today")
     parser.add_argument("--db", default="umd.db")
     parser.add_argument("--cache", default="cache")
-    parser.add_argument("--out", default="site/data")
+    parser.add_argument("--out", default="docs/data")
     parser.add_argument("--keep-days", type=int, default=31, help="menu history to keep")
     parser.add_argument("--delay", type=float, default=0.5, help="seconds per request")
     args = parser.parse_args()

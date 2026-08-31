@@ -58,7 +58,7 @@ This is for me and maybe two friends. Not a product.
 
 ## The data contract
 
-Three files, fetched from `data/`. Sizes are the real ones.
+Three files, fetched from `data/` (served by Pages from `docs/`). Sizes are the real ones.
 
 **`index.json`** (~2 KB) — what exists.
 
@@ -184,7 +184,7 @@ Roughly in the order I'd want to think about them. Ask a few at a time, not all 
   Pages enabled. Pages on a private repo requires GitHub Pro — free for students through
   the Student Developer Pack.
 - The daily scrape needs a GitHub Action on a cron, committing updated JSON.
-- `cache/` (1,607 files) and `umd.db` are gitignored. `site/data/` must be committed,
+- `cache/` (1,607 files) and `umd.db` are gitignored. `docs/data/` must be committed,
   since that's what the site serves.
 
 ## How to run the back end
