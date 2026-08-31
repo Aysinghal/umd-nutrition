@@ -1,6 +1,6 @@
 """Daily scrape and export. Run by the GitHub Action, or by hand.
 
-    python scripts/daily_scrape.py [--days 7] [--db umd.db] [--out site/data]
+    python scripts/daily_scrape.py [--days 7] [--db umd.db] [--out docs/data]
 
 Labels are fetched once ever, so a normal day fetches the menu pages plus whatever
 handful of items are genuinely new. A cold run with no database fetches every
