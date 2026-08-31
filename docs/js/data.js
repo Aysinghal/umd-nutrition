@@ -10,7 +10,16 @@ async function json(path) {
 
 export const loadIndex = () => json('index.json');
 export const loadItems = () => json('items.json');
-export const loadMenu = (hall, date) => json(`menu/${hall}-${date}.json`);
+
+// Switching back and forth between halls shouldn't refetch. Menu days are ~8 KB and
+// there are at most 21 of them.
+const menus = new Map();
+
+export function loadMenu(hall, date) {
+  const key = `${hall}-${date}`;
+  if (!menus.has(key)) menus.set(key, json(`menu/${key}.json`));
+  return menus.get(key);
+}
 
 // The menu file lists meals alphabetically; index.json lists them in the order they
 // actually happen. Always ask the index.

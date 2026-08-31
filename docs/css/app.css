@@ -19,20 +19,23 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-#bar {
-  position: sticky;
-  top: 0;
+/* Controls live at the bottom, in thumb reach. The list scrolls behind them. */
+#dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
   background: var(--bg);
-  border-bottom: 1px solid var(--line);
-  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  border-top: 1px solid var(--line);
 }
 
-.crumb { font-weight: 600; }
-.crumb .sep { color: var(--dim); font-weight: 400; margin: 0 6px; }
-.crumb .count { color: var(--dim); font-weight: 400; font-size: 13px; }
+#bar { padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px); }
 
-#list { padding: 0 0 env(safe-area-inset-bottom); }
+
+/* clear the fixed dock so the last row is never hidden behind it. JS keeps the
+   custom property in sync, because the dock grows when the plate has food on it. */
+#list { padding: 0 0 calc(env(safe-area-inset-bottom) + var(--dock-h, 76px)); }
 
 .row {
   padding: 12px 16px;
@@ -71,3 +74,523 @@ body {
 }
 
 .msg { padding: 24px 16px; color: var(--dim); }
+
+/* --- header chips --------------------------------------------------------- */
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;   /* one line, always */
+}
+
+.chip {
+  appearance: none;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  min-height: 36px;          /* thumb-sized */
+  cursor: pointer;
+  touch-action: manipulation; /* no 300ms tap delay, no double-tap zoom */
+  -webkit-user-select: none;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;               /* let the hall chip shrink rather than wrap the row */
+}
+
+.chip[data-chip='meal'], .chip[data-chip='level'] { flex: none; }
+
+.chip i { color: var(--dim); font-style: normal; margin-left: 5px; font-size: 11px; }
+.chip:active { background: var(--line); }
+.chip.lvl { color: var(--accent); }
+.chip.lvl i { color: var(--accent); opacity: .6; }
+
+.crumb .count {
+  color: var(--dim);
+  font-weight: 400;
+  font-size: 13px;
+  margin-left: auto;
+  padding-left: 4px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- slide-up sheet ------------------------------------------------------- */
+
+body.sheet-open { overflow: hidden; }
+
+.sheet-root { position: fixed; inset: 0; z-index: 10; }
+.sheet-root[hidden] { display: none; }
+
+.sheet-back {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .55);
+  animation: fade .15s ease;
+}
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+  padding: 0 12px calc(env(safe-area-inset-bottom) + 12px);
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: rise .2s cubic-bezier(.2, .8, .3, 1);
+}
+
+.sheet-grab {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 10px auto 4px;
+  cursor: pointer;
+}
+
+.sheet-title {
+  margin: 4px 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  padding: 13px 12px;
+  min-height: 48px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.opt:active { background: var(--line); }
+.opt.on { background: var(--line); }
+.opt.on .opt-label::after { content: ' ✓'; color: var(--accent); }
+.opt-label { font-weight: 600; }
+.opt-note { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+
+@keyframes fade { from { opacity: 0 } }
+@keyframes rise { from { transform: translateY(100%) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet-back { animation: none; }
+}
+
+
+/* --- rows with an add button ---------------------------------------------- */
+
+.row { display: flex; align-items: center; gap: 12px; }
+.row-main { flex: 1; min-width: 0; }
+
+.add {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-variant-numeric: tabular-nums;
+}
+
+.add:active { background: var(--line); }
+.add.on { background: var(--accent); border-color: var(--accent); color: #10251a; font-size: 15px; }
+
+/* --- plate bar ------------------------------------------------------------ */
+
+#plate {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 10px 12px 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#plate[hidden] { display: none; }
+#plate:active { background: var(--card); }
+
+.plate-top { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 8px; }
+.plate-top .caret { color: var(--dim); font-size: 11px; }
+
+.tgt { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 13px; }
+.tgt-k { width: 26px; color: var(--dim); }
+.tgt-v { font-variant-numeric: tabular-nums; min-width: 74px; text-align: right; }
+.tgt-v .of, .trow-v .of { color: var(--dim); }
+
+.bar { flex: 1; height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar > .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.bar > .fill.over { background: var(--warn); }
+
+/* --- plate panel ---------------------------------------------------------- */
+
+.pline { padding: 10px 8px; border-bottom: 1px solid var(--line); }
+.pline-name { font-weight: 600; }
+.pline-sub { color: var(--dim); font-size: 13px; margin-top: 2px; }
+
+.stepper { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+.stepper button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.stepper button:active { background: var(--line); }
+
+.warn-note { color: var(--warn); font-size: 13px; padding: 10px 8px 0; margin: 0; }
+
+.totals { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+.trow { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 14px; }
+.trow-k { width: 58px; color: var(--dim); }
+.trow-v { font-variant-numeric: tabular-nums; min-width: 84px; text-align: right; }
+.trow.off .trow-k { width: auto; flex: 1; }
+
+.panel-actions { padding: 14px 8px 4px; }
+
+.danger {
+  width: 100%;
+  padding: 13px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--warn);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* --- undo toast ----------------------------------------------------------- */
+
+#toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + var(--dock-h, 76px) + 12px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+}
+
+#toast[hidden] { display: none; }
+
+#toast button {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+
+/* --- number pad ----------------------------------------------------------- */
+
+.pad-sub { color: var(--dim); font-size: 13px; margin: 0 8px 10px; }
+
+.pad-view {
+  font-size: 30px;
+  font-weight: 600;
+  text-align: center;
+  padding: 14px 8px 18px;
+  font-variant-numeric: tabular-nums;
+  min-height: 34px;
+}
+
+.pad-dim { color: var(--dim); }
+.pad-eq { color: var(--dim); font-weight: 400; margin: 0 6px; }
+.pad-bad { color: var(--warn); }
+
+.pad-presets {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pad-presets button {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 0;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.pad-grid button {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  font-size: 21px;
+  min-height: 54px;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-variant-numeric: tabular-nums;
+}
+
+.pad-grid button.wide { grid-column: span 2; }
+
+.pad-grid .go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10251a;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.pad-grid .go.off, .pad-grid button.off { opacity: .28; }
+.pad-grid button.off:active { background: var(--card); }
+.pad-presets button:active, .pad-grid button:active { background: var(--line); }
+
+/* the quantity is now a button you tap to type into */
+.stepper .qty {
+  flex: 1;
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-height: 40px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* --- fill-in form --------------------------------------------------------- */
+
+.fill-list { margin-bottom: 4px; }
+
+.fill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  padding: 13px 14px;
+  min-height: 50px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.fill-v { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Where the number came from matters as much as the number: "from Baby Corn" is
+   what makes a wrong suggestion obvious. */
+.fill-src {
+  color: var(--dim);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.5;
+  margin: 14px 0;
+}
+
+.fill-src b { color: var(--text); }
+
+.fill-actions { display: flex; gap: 8px; padding: 4px 0 4px; }
+
+.fill-actions button {
+  flex: 1;
+  appearance: none;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--dim);
+  font: inherit;
+  font-weight: 600;
+  padding: 14px 8px;
+  min-height: 50px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.fill-actions .go, .panel-actions .go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10251a;
+}
+
+.panel-actions .go {
+  width: 100%;
+  appearance: none;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  padding: 14px;
+  min-height: 50px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* --- full-screen label ---------------------------------------------------- */
+
+#labelview {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #fff;
+  color: #000;
+  overflow-y: auto;
+  padding: 0 0 40px;
+  -webkit-text-size-adjust: 100%;
+}
+
+#labelview[hidden] { display: none; }
+
+.lv-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
+}
+
+.lv-bar button {
+  appearance: none;
+  background: #000;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.lv-bar input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;         /* under 16px makes iOS zoom the page on focus */
+  padding: 10px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+}
+
+.lv-warn {
+  margin: 0 14px 10px;
+  padding: 10px 12px;
+  border: 2px solid #000;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lv-note { text-align: center; color: #666; font-size: 13px; margin: 16px 14px 0; }
+
+/* The label itself: heavy rules and tight rows, the way a real panel reads. */
+.lb {
+  margin: 0 14px;
+  border: 2px solid #000;
+  padding: 8px 10px;
+  font-family: Helvetica, Arial, sans-serif;
+  max-width: 420px;
+}
+
+.lb-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.lb-title { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+
+.lb-rule-thin { border-top: 1px solid #000; margin: 5px 0; }
+.lb-rule-med { border-top: 5px solid #000; margin: 4px 0; }
+.lb-rule-thick { border-top: 10px solid #000; margin: 4px 0; }
+
+.lb-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 2px 0;
+  border-bottom: 1px solid #000;
+}
+
+.lb-row:last-child { border-bottom: 0; }
+.lb-serving { border-bottom: 0; font-size: 15px; }
+.lb-small { font-size: 12px; border-bottom: 0; padding-top: 3px; }
+.lb-in { padding-left: 16px; }
+.lb-in2 { padding-left: 30px; }
+
+.lb-cal {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-weight: 800;
+}
+
+.lb-cal span:first-child { font-size: 22px; }
+.lb-cal span:last-child { font-size: 34px; line-height: 1; }

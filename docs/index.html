@@ -7,11 +7,20 @@
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<header id="bar">
-  <div class="crumb" id="crumb">Loading…</div>
-</header>
-
 <main id="list" aria-live="polite"></main>
+
+<div id="toast" hidden></div>
+
+<!-- Full-screen label. White, nothing else on it, so a camera has a clean target. -->
+<div id="labelview" hidden></div>
+
+<!-- Fixed bottom stack: plate totals, then the chips closest to the thumb. -->
+<div id="dock">
+  <button id="plate" hidden></button>
+  <header id="bar">
+    <div class="crumb" id="crumb">Loading…</div>
+  </header>
+</div>
 
 <!--
   Classic script, deliberately plain syntax so it parses anywhere. It runs before the
