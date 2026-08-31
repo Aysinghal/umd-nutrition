@@ -1,0 +1,115 @@
+<!--
+  Hand-built miniature menu page. Not a capture from the site.
+
+  It mirrors the real markup but references only the four label fixtures we hold,
+  so scrape orchestration can be exercised end to end without any network. The
+  chicken appears at two stations in one meal on purpose.
+-->
+<html>
+<head><title>Nutrition | What's on the Menu?</title></head>
+<body>
+  <select name="locationNum">
+    <option value='16'>South Campus</option>
+    <option value='19'>Yahentamitsi Dining Hall</option>
+    <option value='51'>251 North</option>
+  </select>
+
+  <ul class="nav nav-tabs">
+    <li><a class="nav-link active" id="tab-1" href="#pane-1" role="tab"
+           aria-controls="pane-1" aria-selected="true">Breakfast</a></li>
+    <li><a class="nav-link" id="tab-2" href="#pane-2" role="tab"
+           aria-controls="pane-2" aria-selected="false">Dinner</a></li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane active" id="pane-1" role="tabpanel">
+      <div class="card"><div class="card-body">
+        <h3 class="card-title"> Broiler Works</h3>
+        <div class="card-text">
+          <div class="row menu-item-row">
+            <div class="col-md-8">
+              <a class='menu-item-name' href='label.aspx?RecNumAndPort=119370*1'
+                 target='_blank'>French Toast</a>
+            </div>
+            <div class="col-md-4">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_dairy.gif"
+                   alt="Contains dairy" width="16" height="16">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_egg.gif"
+                   alt="Contains egg" width="16" height="16">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_vegetarian.gif"
+                   alt="Vegetarian" width="16" height="16">
+            </div>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-body">
+        <h3 class="card-title">Treats</h3>
+        <div class="card-text">
+          <div class="row menu-item-row">
+            <div class="col-md-8">
+              <a class='menu-item-name' href='label.aspx?RecNumAndPort=102009*1'
+                 target='_blank'>Caramel Sauce</a>
+            </div>
+            <div class="col-md-4">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_dairy.gif"
+                   alt="Contains dairy" width="16" height="16">
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tab-pane" id="pane-2" role="tabpanel">
+      <div class="card"><div class="card-body">
+        <h3 class="card-title">Mongolian Grill</h3>
+        <div class="card-text">
+          <div class="row menu-item-row">
+            <div class="col-md-8">
+              <a class='menu-item-name' href='label.aspx?RecNumAndPort=050148*4'
+                 target='_blank'>Hunan Beef</a>
+            </div>
+            <div class="col-md-4">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_Shellfish.png"
+                   alt="Contains Shellfish" width="16" height="16">
+              <img class='nutri-icon' src="/LegendImages/icons_2016_gluten.gif"
+                   alt="Contains gluten" width="16" height="16">
+            </div>
+          </div>
+          <div class="row menu-item-row">
+            <div class="col-md-8">
+              <a class='menu-item-name' href='label.aspx?RecNumAndPort=126719*1'
+                 target='_blank'>Grilled Blackened Chicken Thigh</a>
+            </div>
+            <div class="col-md-4">
+              <img class='nutri-icon' src="/LegendImages/icons_2022_HalalFriendly.gif"
+                   alt="Halal Friendly" width="16" height="16">
+            </div>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="card-body">
+        <h3 class="card-title">Grill Works</h3>
+        <div class="card-text">
+          <div class="row menu-item-row">
+            <div class="col-md-8">
+              <a class='menu-item-name' href='label.aspx?RecNumAndPort=126719*1'
+                 target='_blank'>Grilled Blackened Chicken Thigh</a>
+            </div>
+            <div class="col-md-4">
+              <img class='nutri-icon' src="/LegendImages/icons_2022_HalalFriendly.gif"
+                   alt="Halal Friendly" width="16" height="16">
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <img src="/LegendImages/icons_2016_local.gif" alt="Local">
+    <img src="/LegendImages/icons_2026_pork.gif" alt="Contains pork">
+  </div>
+</body>
+</html>

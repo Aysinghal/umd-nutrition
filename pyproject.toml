@@ -1,0 +1,25 @@
+[project]
+name = "umd-nutrition"
+version = "0.1.0"
+description = "Scrape UMD Dining nutrition data and make it queryable"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+# The `umd` console script gets declared once cli.py exists (milestone 5).
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["umd_nutrition"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

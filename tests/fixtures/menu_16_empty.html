@@ -1,0 +1,253 @@
+
+<!Doctype html>
+<html class="js" lang="en">
+<head>
+
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <title>Nutrition | What's on the Menu?</title>
+    <link rel="stylesheet" href="foodpro_web_ina.css" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/terp.css" type="text/css">
+    <link rel="stylesheet" href="css/custom.css" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Crimson+Text:400,400i,600,600i|Source+Sans+Pro:200,200i,300,300i,400,400i,600,600i,700,700i,900,900i&amp;display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="site-header ">
+        <div class="site-header__bar max-bound">
+            <a class="site-header__logo" href="/">
+                <img src="img/logo.png" alt="UMD Dining Services | Nutrition Logo">
+            </a>
+            <button id="site-header-nav-toggle" class="site-header__nav-toggle" aria-expanded="false">
+                <span aria-hidden="true" class="site-header__nav-icon">
+                    <span role="presentation"></span>
+                    <span role="presentation"></span>
+                    <span role="presentation"></span>
+                    <span role="presentation"></span>
+                </span>
+                <span class="sr-only">Main Menu</span>
+            </button>
+            <nav class="site-header__nav" aria-hidden="true">
+                <ul>
+                    <li class="nav-item">
+                        <a href="https://dining.umd.edu">Dining Services</a>
+                    </li>
+                    <li class="nav-item">
+                        <a id="longmenu-link" href="longmenu.aspx">Plan Your Meal</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a href="contact.html">Contact
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    <div role="article" about="/home" class="home-hero home-hero-dark home-hero-bg">
+        <div class="max-bound">
+            <div class="home-hero-media">
+                <img src="img/cover.jpeg" alt="Vegetables and meat on table top">
+            </div>
+            <div class="home-hero-content">
+                <div class="outer-pad">
+                    <div class="editor-content">
+                        <h1>Nutrition</h1>
+                        <h2>#FeedTheTurtle</h2>
+                        <p>Welcome to Maryland Dining & Nutrition! Get to know what's on the upcoming week's menu, get nutrition information on our delicious, healthy food selections, plan your meal at the dining hall or search for when and where your favorite items will be available.</p>
+                        <p>
+                            <a href="search.aspx" class="btn btn-primary" target="_self">Search
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12 editor-content mt-4">
+                <!-- <blockquote>
+					<a href="#">In order to prepare for the next semester and to minimize food waste, we need some flexibility.  You may see food items different from those shown on the menu during finals week. Please see a manager or chef if you have questions or concerns about ingredients.<br/> Thank you for understanding.</a>
+				</blockquote> -->
+                <blockquote>
+                    <p>Looking for nutrition info? It's available during the school year! If you have questions about allergens or nutrition when school's out, just email us at nutrition@umd.edu or call 301-314-5058</p>
+                </blockquote>
+            </div>
+            <div class="section section-umd_terp_basic_page section-ut_text">
+                <div class="editor-content">
+                    <h2 id="menu"><strong>What's on the Menu? </strong></h2>
+                    <div class="container">
+                        <form class="views-exposed-form" accept-charset="UTF-8" style="margin: 0">
+                            <div class="js-form-item form-item js-form-type-select form-item-field-umdt-ct-article-categories js-form-item-field-umdt-ct-article-categories">
+                                <label for="location-select-menu">Dining Hall</label>
+                                <select id="location-select-menu" class="form-select" name="locationNum">
+                                    <option value='16'>South Campus</option><option value='19'>Yahentamitsi Dining Hall</option><option value='51'>251 North</option>
+                                </select>
+                            </div>
+                            <div class="js-form-item form-item js-form-type-select form-item-field-umdt-ct-article-categories js-form-item-field-umdt-ct-article-categories">
+                                <label for="date-select-menu">Date</label>
+                                <select id="date-select-menu" class="form-select" name="dtdate">
+                                </select>
+                            </div>
+                            <div class="form-actions js-form-wrapper form-wrapper">
+                                <input type="submit" id="btn-set-filter" value="Set Filters" class="button js-form-submit form-submit btn btn-secondary">
+                            </div>
+                        </form>
+                    </div>
+                    <p>
+                        <span id="legend-filt-text" class="d-none">Current Legend Filters - <em id="legend-filter-disp"></em>
+                        </span>
+                        <br id="legend-br" class="d-none">
+                        <span id="allergen-filt-text" class="d-none">Current Allergen Filters - <em id="allergen-filter-disp"></em>
+                        </span>
+                    </p>
+                </div>
+                <!-- editor-content end -->
+            </div>
+            <!-- section-ut_text end -->
+            
+        <h3 class="mt-3" style="text-align: center">NO DATA AVAILABLE</h3>
+        <br />
+        
+        <h3><strong>Legend </strong></h3>
+        <div class="row" style="padding: 0 20px; justify-content: center;" aria-hidden="true"> <!--This is formatted with the new symbols launching 2026. It is hidden but once we are ready to show them we can delete the legend above this-->
+            <!-- [WEB DEV NOTE]: This is a manual legend. If any changes are made, update this manually -->
+            <div class="col-sm-4 col-md-4 col-xl-3">
+                <ul id="legend">
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2026_alcohol.gif" alt="">
+                        Contains Alcohol</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2026_coconut.gif" alt="">
+                        Contains Coconut</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_dairy.gif" alt="">
+                        Contains Dairy</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_egg.gif" alt="">
+                        Contains Eggs</li>
+                </ul>
+            </div>
+            <div class="col-sm-4 col-md-4 col-xl-3">
+                <ul id="legend">
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_fish.gif" alt="">
+                        Contains Fish</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_gluten.gif" alt="">
+                        Contains Gluten</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2026_nuts.gif" alt="">
+                        Contains Nuts</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2026_pea_protein.gif" alt="">
+                        Contains Pea Protein</li>
+                </ul>
+            </div>
+            <div class="col-sm-4 col-md-4 col-xl-3">
+                <ul id="legend">
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2026_pork.gif" alt="">
+                        Contains Pork</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2020_sesame.gif" alt="">
+                        Contains Sesame</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_Shellfish.png" alt="">
+                        Contains Shellfish</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_soy.gif" alt="">
+                        Contains Soy</li>
+                </ul>
+            </div>
+            <div class="col-sm-4 col-md-4 col-xl-3">
+                <ul id="legend">
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2022_HalalFriendly.gif" alt="">
+                        Halal Friendly</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_local.gif" alt="">
+                        Locally Grown</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_vegan.gif" alt="">
+                        Vegan</li>
+                    <li>
+                        <img src="https://nutrition.umd.edu/LegendImages/icons_2016_vegetarian.gif" alt="">
+                        Vegetarian</li>
+                </ul>
+            </div>
+        </div>
+        <div class="editor-content text-center my-3">
+            <p><em>Looking for a specific item? Head over to <a href="search.aspx">search </a>instead.</em></p>
+        </div>
+        <hr class="divider spacing-small rule-small" style="opacity: 100%;">
+        <div class="editor-content">
+            <p>
+                <img alt="MenuTriInfo Certified Free From" data-entity-type="file" src="img/CFF.png" class="align-left" loading="lazy" width="177" height="177">
+            </p>
+            <p>Purple Zone at 251 North certified Free From™ by MenuTriInfo - accreditation meets ISO 17065 standards as free from nine common food allergens.</p>
+            <p>Visit <a href="https://www.menutrinfo.com/">https://www.menutrinfo.com/</a> for more information.</p>
+        </div>
+    </div>
+    <!-- row end -->
+    </div>
+    <!-- container end -->
+    <div class="site-footer-main">
+        <div class="max-bound">
+            <nav class="site-footer-nav" aria-label="Footer" style="text-align: center">
+                <ul>
+                    <li><a href="https://dining.umd.edu">Dining Website</a> </li>
+                    <li><a href="https://dining.umd.edu/services/students">Dining Plans</a> </li>
+                    <li><a href="https://dining.umd.edu/nutrition-more">Nutrition &amp; More</a> </li>
+                    <li><a href="https://dining.umd.edu/online-services">Online Services</a> </li>
+                    <li><a href="/contact.html">Contact Us</a> </li>
+                </ul>
+            </nav>
+            <div class="site-footer-about">
+                <div class="site-footer-logo">
+                    <img src="https://dining.umd.edu/sites/default/files/student%20affairs_SA%20dining%20svs.png" alt="UMD Dining Services footer logo">
+                </div>
+                <div class="site-footer-address">
+                    <strong>UMD Dining Services</strong>
+                    <br>
+                    <span>7093 Preinkert Dr, College Park, MD 20740</span>
+                    <br>
+                    <a aria-label="3013148069" href="tel:+3013148069">(301) 314-8069</a> <span aria-hidden="true">&nbsp;·&nbsp;</span> <a href="mailto:umfood@umd.edu">umfood@umd.edu</a>
+                </div>
+                <div class="site-footer-social">
+                    <ul>
+                        <li>
+                            <a href="https://twitter.com/UMDdining" target="_blank"><span class="sr-only">Visit our Twitter</span> <span class="icon icon-twitter" aria-hidden="true"></span></a>
+                        </li>
+                        <li>
+                            <a href="https://www.facebook.com/UMDdining" target="_blank"><span class="sr-only">Visit our Facebook</span> <span class="icon icon-facebook" aria-hidden="true"></span></a>
+                        </li>
+                        <li>
+                            <a href="https://www.instagram.com/umddining" target="_blank"><span class="sr-only">Visit our Instagram</span> <span class="icon icon-instagram" aria-hidden="true"></span></a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="site-footer-legal">
+        <div class="max-bound">
+            <ul>
+                <li><a href="https://umd.edu" target="_blank">UMD.edu</a> </li>
+                <li><a href="https://www.umd.edu/web-accessibility">Web Accessibility</a> </li>
+                <li><a href="https://www.umd.edu/privacy-notice" target="_blank">Privacy Notice</a> </li>
+            </ul>
+        </div>
+    </div>
+    <!-- Required for Custom CSS & Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <!-- Required for Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <!-- Required for Custom CSS -->
+    <script src="js/custom.js"></script>
+    <!-- Generates UMD Header -->
+    <script src="https://umd-header.umd.edu/build/bundle.js?search=1&search_domain=&events=0&news=0&schools=0&admissions=0&support=1&support_url=&wrapper=1100&sticky=0"></script>
+</body>
+
+</html>

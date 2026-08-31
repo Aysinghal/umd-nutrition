@@ -1,0 +1,55 @@
+name: Daily scrape
+
+on:
+  schedule:
+    # 09:00 UTC ~= 5am US Eastern, so the day's menu is up before breakfast.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The database and the HTML cache are what make a daily run cheap: without
+      # them every run would re-fetch all ~1,600 labels. They are too big and too
+      # churny to commit, so they live in the Actions cache. If it is ever
+      # evicted the next run just does a full scrape and repopulates it.
+      - name: Restore scrape cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            umd.db
+            cache
+          key: umd-scrape-${{ github.run_id }}
+          restore-keys: umd-scrape-
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Scrape and export
+        run: python scripts/daily_scrape.py --days 7
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/data
+          if git diff --staged --quiet; then
+            echo "menu data unchanged"
+          else
+            git commit -m "Update menu data $(date -u +%Y-%m-%d)"
+            git push
+          fi
