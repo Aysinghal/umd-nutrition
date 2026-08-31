@@ -594,3 +594,274 @@ body.sheet-open { overflow: hidden; }
 
 .lb-cal span:first-child { font-size: 22px; }
 .lb-cal span:last-child { font-size: 34px; line-height: 1; }
+
+/* --- item detail ---------------------------------------------------------- */
+
+.d-sub { color: var(--dim); font-size: 13px; margin: 0 8px 12px; }
+
+.d-nums { border-top: 1px solid var(--line); margin: 0 0 12px; }
+
+.d-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.d-row span:last-child { font-weight: 600; }
+.d-in { padding-left: 22px; color: var(--dim); }
+.d-in span:last-child { font-weight: 400; }
+
+.d-diet, .d-allerg { font-size: 13px; margin: 0 8px 10px; line-height: 1.5; }
+.d-allerg b { color: var(--warn); }
+.d-dim { color: var(--dim); }
+
+.d-warn {
+  color: var(--warn);
+  font-size: 13px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  line-height: 1.45;
+}
+
+/* where a number came from, shown wherever the number is */
+.d-src {
+  font-size: 13px;
+  color: var(--dim);
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  background: var(--card);
+  border-radius: 8px;
+}
+
+.d-src b { color: var(--text); }
+
+.d-revert {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  padding: 2px 4px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.d-step { margin: 14px 0 10px; }
+.d-editrow { padding: 12px 0 4px; }
+
+.d-edit {
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 12px;
+  min-height: 44px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.d-fix { width: 100%; }
+
+.d-srclabel { font-size: 13px; color: var(--dim); margin: 14px 0 8px; }
+.d-sources { display: flex; gap: 6px; margin-bottom: 4px; }
+
+.d-source {
+  flex: 1;
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 11px 4px;
+  min-height: 46px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.d-source.on { border-color: var(--accent); color: var(--accent); }
+
+/* badge on the list row, so a corrected item is obvious without opening it */
+.ov-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--dim);
+  font-size: 11px;
+  vertical-align: 1px;
+}
+
+.row { cursor: pointer; }
+.lv-single { font-weight: 600; font-size: 15px; }
+
+/* --- primary button ------------------------------------------------------- */
+
+/* `.go` had only ever been defined inside .pad-grid, .fill-actions and
+   .panel-actions, so a `.go` anywhere else fell back to the browser's grey
+   default. This is the base every primary button gets; the scoped rules above
+   still win where they need to. */
+.go {
+  appearance: none;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: #10251a;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px;
+  min-height: 50px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.go:active { opacity: .82; }
+
+/* Source is a quiet trust marker for later, not a decision to make every time. */
+.d-srclabel { font-size: 12px; color: var(--dim); margin: 16px 0 6px; }
+.d-sources { display: flex; gap: 6px; margin-bottom: 4px; }
+
+.d-source {
+  flex: 1;
+  padding: 8px 4px;
+  min-height: 36px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.d-was {
+  display: block;
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* --- filters -------------------------------------------------------------- */
+
+.count {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding: 7px 11px;
+  min-height: 36px;
+  margin-left: auto;
+  flex: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.count .fi { font-style: normal; margin-left: 5px; font-size: 13px; }
+.count:active { background: var(--line); }
+
+.f-head {
+  font-size: 12px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin: 16px 0 8px;
+}
+
+.f-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+
+.f-chip {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 12px;
+  min-height: 40px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.f-chip.on { border-color: var(--accent); color: var(--accent); }
+.f-chip .f-n { color: var(--dim); opacity: .6; margin-left: 5px; font-size: 11px; }
+.f-chip.on .f-n { color: var(--accent); }
+
+.f-note {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.5;
+  margin: 8px 2px 4px;
+}
+
+/* --- flagged items -------------------------------------------------------- */
+
+.row.flagged { opacity: .55; }
+.row.flagged .name { font-weight: 500; }
+
+.flag-why {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--warn);
+  line-height: 1.4;
+}
+
+/* --- toggle switch -------------------------------------------------------- */
+
+.f-toggle { align-items: center; }
+.f-toggle.on { border-color: var(--accent); }
+.f-toggle.on > span:first-child { color: var(--accent); }
+
+.sw {
+  flex: none;
+  width: 46px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+  transition: background .15s ease;
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: transform .15s ease, background .15s ease;
+}
+
+.f-toggle.on .sw { background: rgba(127, 209, 160, .3); }
+.f-toggle.on .knob { transform: translateX(18px); background: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw, .knob { transition: none; }
+}
+
+/* the count and the filter icon are two different ideas: how many passed, and the
+   control that changes it */
+.count { display: inline-flex; align-items: center; gap: 0; padding: 7px 4px 7px 11px; }
+.cnum { padding-right: 9px; }
+
+.count .fi {
+  margin-left: 0;
+  padding: 0 9px;
+  border-left: 1px solid var(--line);
+  font-size: 15px;
+  line-height: 1.1;
+}

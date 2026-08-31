@@ -13,7 +13,12 @@ const DEFAULTS = {
   hall: 19,
   level: 4,
   plate: [],
-  estimates: {},   // itemId -> { cal, protein, carbs, fat } you typed in once
+  estimates: {},   // legacy; migrated into `overrides` on first read
+  overrides: {},   // itemId -> { values, source, basis, at } you supplied yourself
+  sort: 'ratio',
+  floor: 10,
+  avoid: [],       // allergen names to exclude
+  showFlagged: false,
 };
 
 function load() {

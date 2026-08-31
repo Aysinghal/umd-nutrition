@@ -3,6 +3,7 @@
 // which is exactly where the plate lives. Built once, reused for targets later.
 
 import { panel } from './sheet.js';
+import { esc } from './util.js';
 
 // "3" -> 3   "0.75" -> 0.75   "1/4" -> 0.25   "1 1/2" -> 1.5
 // Anything else -> null, which the caller must treat as "not a number yet".
@@ -92,6 +93,3 @@ export function openKeypad({ title, subtitle, initial, onDone }) {
   });
 }
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}

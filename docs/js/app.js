@@ -5,8 +5,12 @@ import * as plate from './plate.js';
 import { openKeypad } from './keypad.js';
 import { buildIndex, suggestFor, FIELDS as SUGGEST_FIELDS } from './suggest.js';
 import { labelHtml } from './label.js';
+import { openDetail } from './detail.js';
+import * as overrides from './overrides.js';
+import { esc, num, fmtQty } from './util.js';
+import { openFilters, get as getFilters } from './filters.js';
 
-const PROTEIN_FLOOR = 10;
+const floor = () => getFilters().floor;
 
 export const DIET_LEVELS = [
   { value: 1, label: 'Vegetarian', note: 'no meat at all' },
@@ -70,67 +74,77 @@ function ratioOf({ protein, cal }) {
 // any level. Blocked, not merely ranked last.
 const allowedAt = (item, level) => item.diet_level != null && item.diet_level <= level;
 
-function rank(rows) {
-  const scored = rows.map((r) => ({ ...r, ratio: ratioOf(r.item) }));
+// Flagged items can never win a ranking — their numbers are the reason they're flagged.
+const SORTERS = {
+  ratio: (a, b) => b.ratio - a.ratio,
+  protein: (a, b) => (b.item.protein ?? 0) - (a.item.protein ?? 0),
+  cal: (a, b) => (a.item.cal ?? 0) - (b.item.cal ?? 0),
+};
 
-  // Three tiers: real contenders, then everything else that has numbers, then the
-  // items we know nothing about. Sorting is by ratio inside each tier.
+function rank(rows, sort = 'ratio') {
+  const scored = rows.map((r) => ({ ...r, ratio: ratioOf(r.item) }));
+  const by = SORTERS[sort] || SORTERS.ratio;
+
+  // Four tiers: real contenders, then everything else that has numbers, then flagged
+  // items, then the ones we know nothing about.
   const tier = (r) => {
-    if (r.ratio == null) return 2;
-    return (r.item.protein ?? 0) >= PROTEIN_FLOOR ? 0 : 1;
+    if (r.item.suspect) return 2;
+    if (r.ratio == null) return 3;
+    return (r.item.protein ?? 0) >= floor() ? 0 : 1;
   };
 
   return scored.sort((a, b) => {
     const t = tier(a) - tier(b);
     if (t !== 0) return t;
     if (a.ratio == null && b.ratio == null) return a.item.name.localeCompare(b.item.name);
-    return b.ratio - a.ratio;
+    return by(a, b);
   });
 }
 
 function rebuild() {
+  const f = getFilters();
   const rows = collect(state.menu, state.meal, state.items)
-    // The 29 items whose numbers can't be true stay out until there's a toggle for them.
-    .filter((r) => !r.item.suspect)
-    .filter((r) => allowedAt(r.item, state.level));
-  state.rows = rank(rows);
+    .filter((r) => f.showFlagged || !r.item.suspect)
+    .filter((r) => allowedAt(r.item, state.level))
+    // Hides items that declare the allergen. An item declaring none isn't proven
+    // free of it — see the note in the filters sheet.
+    .filter((r) => !f.avoid.some((a) => (r.item.allergens || []).includes(a)));
+  state.rows = rank(rows, f.sort);
 }
 
 // --- rendering ---------------------------------------------------------------
 
 const el = (id) => document.getElementById(id);
-const num = (v, digits = 0) => (v == null ? '—' : v.toFixed(digits));
-
-// 1, 1.5, 2 — never 1.0
-const fmtQty = (q) => (Number.isInteger(q) ? String(q) : q.toFixed(1));
 
 // "Yahentamitsi Dining Hall" is too long for a chip; the suffix carries no information.
 const shortHall = (name) => name.replace(/ Dining Hall$/, '');
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-
 function rowHtml(r) {
   const { item, stations, ratio } = r;
   const classes = ['row'];
+  if (item.suspect) classes.push('flagged');
   if (item.no_data) classes.push('nodata');
-  else if ((item.protein ?? 0) < PROTEIN_FLOOR) classes.push('low');
+  else if ((item.protein ?? 0) < floor()) classes.push('low');
 
   const where = [stations.join(' · '), item.serving].filter(Boolean).join(' · ');
+
+  const badge = item.override
+    ? ` <span class="ov-badge">${esc(overrides.SOURCES[item.override].short)}</span>`
+    : '';
 
   const macros = item.no_data
     ? 'no nutrition info'
     : `${num(item.cal)} cal <span class="p">${num(item.protein, 1)} g P</span>` +
-      ` <span class="ratio">· ${ratio == null ? '—' : ratio.toFixed(3)} P/cal</span>`;
+      ` <span class="ratio">· ${ratio == null ? '—' : ratio.toFixed(3)} P/cal</span>` + badge;
 
   const qty = plate.qtyOf(r.id);
 
-  return `<div class="${classes.join(' ')}">
+  return `<div class="${classes.join(' ')}" data-row="${esc(r.id)}">
     <div class="row-main">
       <div class="name">${esc(item.name)}</div>
       <div class="where">${esc(where)}</div>
       <div class="macros">${macros}</div>
+      ${item.suspect ? `<div class="flag-why">${esc(item.suspect)}</div>` : ''}
     </div>
     <button class="add${qty ? ' on' : ''}" data-add="${esc(r.id)}"
       aria-label="Add ${esc(item.name)}">${qty ? fmtQty(qty) + '×' : '+'}</button>
@@ -143,7 +157,8 @@ function renderBar() {
     <button class="chip" data-chip="hall">${esc(shortHall(hall))}<i>▾</i></button>
     <button class="chip" data-chip="meal">${esc(state.meal ?? '—')}<i>▾</i></button>
     <button class="chip lvl" data-chip="level" title="Tap to cycle, hold to choose">Lvl ${state.level}<i>▾</i></button>
-    <span class="count">${state.loading ? '…' : state.rows.length}</span>`;
+    <button class="count" data-chip="filters" aria-label="Filters"><span class="cnum">${
+      state.loading ? '…' : state.rows.length}</span><i class="fi">≡</i></button>`;
 }
 
 function renderList() {
@@ -157,8 +172,8 @@ function renderList() {
   const parts = [];
   let marked = false;
   for (const r of state.rows) {
-    if (!marked && (r.ratio == null || (r.item.protein ?? 0) < PROTEIN_FLOOR)) {
-      parts.push(`<div class="divider">under ${PROTEIN_FLOOR} g protein</div>`);
+    if (!marked && (r.ratio == null || (r.item.protein ?? 0) < floor())) {
+      parts.push(`<div class="divider">under ${floor()} g protein</div>`);
       marked = true;
     }
     parts.push(rowHtml(r));
@@ -184,6 +199,9 @@ function render() {
 
 let toastTimer = null;
 
+// Flagged items you've acknowledged this session.
+const confirmedFlagged = new Set();
+
 function toast(message, undo) {
   const box = el('toast');
   box.innerHTML = `<span>${esc(message)}</span><button data-undo>Undo</button>`;
@@ -200,9 +218,20 @@ function toast(message, undo) {
 
 function wireList() {
   el('list').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-row]');
     const btn = e.target.closest('[data-add]');
-    if (!btn) return;
+    if (!btn) {
+      if (row) showDetail(row.dataset.row);
+      return;
+    }
     const id = btn.dataset.add;
+    // Adding numbers you can see are wrong should take a deliberate second tap.
+    if (state.items[id]?.suspect && !plate.qtyOf(id) && !confirmedFlagged.has(id)) {
+      confirmedFlagged.add(id);
+      toast(`${state.items[id].name}: numbers can't be true. Tap + again to add anyway.`,
+        () => confirmedFlagged.delete(id));
+      return;
+    }
     const before = plate.qtyOf(id);
     plate.add(id);
     renderPlate();
@@ -217,27 +246,58 @@ function wireList() {
   el('plate').addEventListener('click', openPlatePanel);
 }
 
+function showDetail(id) {
+  const item = state.items[id];
+  if (!item) return;
+  const row = state.rows.find((r) => r.id === id);
+  openDetail({
+    id,
+    item,
+    items: state.items,
+    stations: row ? row.stations : [],
+    suggestIndex: state.suggestIndex,
+    onChange: () => { rebuild(); render(); },
+    // Label a single item at whatever amount you actually took.
+    onLabel: (itemId, qty) => {
+      closeSheet();
+      showSingleLabel(itemId, qty);
+    },
+  });
+}
+
+function showSingleLabel(id, qty) {
+  const item = state.items[id];
+  const sums = Object.fromEntries(plate.LABEL_FIELDS.map((f) => [f, (item[f] || 0) * qty]));
+  const view = el('labelview');
+  view.innerHTML = `
+    <div class="lv-bar"><button data-close-label>Done</button>
+      <span class="lv-single">${esc(item.name)}</span></div>
+    ${item.no_data ? '<p class="lv-warn">This item has no published nutrition. The label below is all zeroes.</p>' : ''}
+    ${labelHtml({
+      name: item.name,
+      servingSize: `${fmtQty(qty)} \u00d7 ${item.serving || 'serving'}`,
+      sums,
+    })}
+    <p class="lv-note">Turn your screen brightness up before scanning.</p>`;
+  view.hidden = false;
+  view.querySelector('[data-close-label]').onclick = () => { view.hidden = true; };
+}
+
 // --- the FoodNoms label -------------------------------------------------------
 
 const FILL_LABELS = { cal: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat' };
 
 let skipped = new Set();
 
-// Merges saved estimates into the loaded items, so an item you've filled in once
-// stops behaving like a no-data item everywhere — list, totals and label alike.
 function applyEstimates() {
-  const saved = store.get('estimates') || {};
-  for (const [id, values] of Object.entries(saved)) {
-    const item = state.items[id];
-    if (item) Object.assign(item, values, { no_data: false, estimated: true });
-  }
+  overrides.applyTo(state.items);
 }
 
 function saveEstimate(id, values) {
-  const saved = { ...(store.get('estimates') || {}) };
-  saved[id] = values;
-  store.set('estimates', saved);
-  applyEstimates();
+  const item = state.items[id];
+  const hint = suggestFor(item, state.suggestIndex);
+  overrides.set(id, { values, source: 'estimate', basis: hint ? hint.from.name : null });
+  overrides.applyTo(state.items);
 }
 
 function plateName() {
@@ -553,7 +613,8 @@ function wireBar() {
   bar.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-chip]');
     if (!chip) return;
-    if (chip.dataset.chip === 'hall') openHallSheet();
+    if (chip.dataset.chip === 'filters') openFilters(() => { rebuild(); render(); });
+    else if (chip.dataset.chip === 'hall') openHallSheet();
     else if (chip.dataset.chip === 'meal') openMealSheet();
     else if (chip.dataset.chip === 'level') {
       if (held) { held = false; return; } // the long-press already opened the sheet

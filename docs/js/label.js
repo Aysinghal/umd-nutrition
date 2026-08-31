@@ -17,10 +17,9 @@ const ROWS = [
   { key: 'protein', label: 'Protein', unit: 'g', bold: true },
 ];
 
-const fmt = (v, unit) => (unit === 'g' ? Math.round(v * 10) / 10 : Math.round(v));
+import { esc } from './util.js';
 
-const esc = (s) => String(s).replace(/[&<>"]/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = (v, unit) => (unit === 'g' ? Math.round(v * 10) / 10 : Math.round(v));
 
 export function labelHtml({ name, servingSize, sums }) {
   const rows = ROWS.map((r) => {
