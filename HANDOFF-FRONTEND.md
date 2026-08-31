@@ -1,5 +1,8 @@
 # Handoff: planning the front end
 
+**Answered — the resulting spec is in [FRONTEND-PLAN.md](FRONTEND-PLAN.md).** This file
+stays as the record of what was asked and why.
+
 Read this, then **ask me questions** to work out what the app should be. Don't start
 building. We're planning pages and how things work first.
 
@@ -178,14 +181,21 @@ Roughly in the order I'd want to think about them. Ask a few at a time, not all 
 20. Does this need to work with no signal? Dining hall basements are not great for
     reception, and a service worker is the difference between working and a blank page.
 
-## Practical setup still to do
+## Practical setup
 
-- The project **is not a git repository yet**. GitHub Pages needs `git init`, a repo, and
-  Pages enabled. Pages on a private repo requires GitHub Pro — free for students through
-  the Student Developer Pack.
-- The daily scrape needs a GitHub Action on a cron, committing updated JSON.
-- `cache/` (1,607 files) and `umd.db` are gitignored. `docs/data/` must be committed,
-  since that's what the site serves.
+Mostly done — this section used to say none of it was.
+
+- The project **is** a git repository, on `main`. Pages serves from `docs/`.
+  Pages on a private repo requires GitHub Pro — free for students through the
+  Student Developer Pack.
+- The daily scrape **has** a GitHub Action on a cron
+  ([.github/workflows/daily-scrape.yml](.github/workflows/daily-scrape.yml)), plus a test
+  workflow. `scripts/daily_scrape.py` is what it runs.
+- `cache/` and `umd.db` are gitignored. `docs/data/` **is** committed — currently
+  `index.json`, `items.json`, and 21 menu files (3 halls × 7 days).
+
+Genuinely still open: menu history retention is 7 days, not the month the plan assumes.
+That's an exporter change, not a front-end one.
 
 ## How to run the back end
 
