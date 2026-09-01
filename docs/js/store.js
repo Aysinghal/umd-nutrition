@@ -15,6 +15,8 @@ const DEFAULTS = {
   plate: [],
   estimates: {},   // legacy; migrated into `overrides` on first read
   overrides: {},   // itemId -> { values, source, basis, at } you supplied yourself
+  targets: {},      // macro -> { value, on }; empty falls back to DEFAULT_TARGETS
+  lastBackup: null, // ISO date of the last export
   sort: 'ratio',
   floor: 10,
   avoid: [],       // allergen names to exclude
@@ -49,6 +51,16 @@ export function set(key, value) {
 
 // Asks the browser not to evict us under storage pressure. Chrome and Firefox honour
 // it; Safari mostly ignores it. Bonus, not a guarantee — the backup button is the plan.
+// Backup works on the whole object rather than a list of fields, so anything added
+// later — favourites, hidden items, saved plates — is covered without touching this.
+export const snapshot = () => ({ ...data });
+
+export function replaceAll(next) {
+  if (!next || typeof next !== 'object') throw new Error('not a backup file');
+  if (next.v !== VERSION) throw new Error(`backup is version ${next.v}, this app reads ${VERSION}`);
+  localStorage.setItem(KEY, JSON.stringify(next));
+}
+
 export function requestPersistence() {
   navigator.storage?.persist?.().catch(() => {});
 }

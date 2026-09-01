@@ -10,6 +10,8 @@ import * as overrides from './overrides.js';
 import { esc, num, fmtQty } from './util.js';
 import { openFilters, get as getFilters } from './filters.js';
 import { draggable } from './drag.js';
+import { openSettings } from './settings.js';
+import { backupAge } from './backup.js';
 
 const floor = () => getFilters().floor;
 
@@ -32,6 +34,7 @@ const state = {
   loading: true,
   suggestIndex: null,
   labelName: null,
+  tempTargets: null,   // this-meal-only target changes; never stored
 };
 
 // --- meal guessing -----------------------------------------------------------
@@ -201,7 +204,14 @@ function renderHero() {
   el('hero-sub').textContent = state.loading
     ? state.meal ?? ''
     : `${state.meal} · ${state.rows.length} items, ${over} over ${floor()} g protein`;
-  el('hero-meta').textContent = `menu updated ${state.builtOn ?? ''}`;
+  const age = backupAge();
+  const nudge = age.stale
+    ? `<button class="hero-nudge" id="hero-nudge">${
+        age.days == null ? 'never backed up' : `last backed up ${age.days} days ago`}</button>`
+    : '';
+  el('hero-meta').innerHTML = `menu updated ${esc(state.builtOn ?? '')}${nudge}`;
+  const n = el('hero-nudge');
+  if (n) n.onclick = () => openSettings(() => render());
 }
 
 function render() {
@@ -435,9 +445,10 @@ function renderPlate() {
   const { sums, unknown } = plate.totals(state.items);
   const n = plate.servings();
 
+  const tg = plate.targets(state.tempTargets);
   const bars = ['cal', 'protein']
     .map((m) => {
-      const t = plate.TARGETS[m];
+      const t = tg[m];
       const pct = t.on && t.value ? Math.min(100, (sums[m] / t.value) * 100) : 0;
       const over = t.on && t.value && sums[m] > t.value;
       return `<div class="tgt">
@@ -473,8 +484,9 @@ function platePanelHtml() {
     </div>`;
   }).join('');
 
+  const tg = plate.targets(state.tempTargets);
   const totals = plate.MACROS.map((m) => {
-    const t = plate.TARGETS[m];
+    const t = tg[m];
     const val = fmtTotal(m, sums, unknown);
     const unit = plate.UNITS[m];
     if (!t.on || !t.value) {
@@ -485,11 +497,12 @@ function platePanelHtml() {
     }
     const pct = Math.min(100, (sums[m] / t.value) * 100);
     const over = sums[m] > t.value;
-    return `<div class="trow">
+    return `<button class="trow" data-target="${m}">
       <span class="trow-k">${plate.LABELS[m]}</span>
       <span class="bar"><span class="fill${over ? ' over' : ''}" style="width:${pct}%"></span></span>
-      <span class="trow-v">${val}<span class="of">/${t.value}</span></span>
-    </div>`;
+      <span class="trow-v">${val}<span class="of">/${t.value}</span>${
+        t.temp ? `<span class="of tmp">was ${t.def}</span>` : ''}</span>
+    </button>`;
   }).join('');
 
   // Name the items actually responsible, so it's obvious what to double-check.
@@ -531,6 +544,21 @@ function openPlatePanel() {
     html: platePanelHtml(),
     onClick: (e) => {
       const line = e.target.closest('.pline');
+      const tgt = e.target.closest('[data-target]');
+      if (tgt) {
+        const m = tgt.dataset.target;
+        const cur = plate.targets(state.tempTargets)[m];
+        return openKeypad({
+          title: `${plate.LABELS[m]} target`,
+          subtitle: `this meal only · default ${cur.def}`,
+          initial: cur.value,
+          onDone: (v) => {
+            state.tempTargets = { ...state.tempTargets, [m]: v };
+            renderPlate();
+            openPlatePanel();
+          },
+        });
+      }
       if (e.target.closest('[data-label]')) {
         skipped = new Set();
         labelFlow();
@@ -539,6 +567,7 @@ function openPlatePanel() {
       if (e.target.closest('[data-clear]')) {
         plate.clear();
         state.labelName = null;
+        state.tempTargets = null;
         closeSheet();
         render();
         return;
@@ -588,6 +617,7 @@ function setMeal(meal) {
   if (meal === state.meal) return;
   state.meal = meal; // deliberately not stored: the clock guesses this each time
   state.labelName = null;
+  state.tempTargets = null;
   rebuild();
   render();
 }
@@ -694,6 +724,7 @@ async function main() {
     render();
     wireBar();
     wireList();
+    el('gear').addEventListener('click', () => openSettings(() => render()));
     store.requestPersistence();
     window.__stage = 'done';
   } catch (err) {

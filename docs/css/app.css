@@ -1013,3 +1013,102 @@ body.sheet-open {
 @supports not (height: 1svh) {
   #hero { min-height: 50vh; }
 }
+
+/* --- settings ------------------------------------------------------------- */
+
+#hero { position: relative; }
+
+#gear {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 18px);
+  right: 14px;
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--dim);
+  font-size: 17px;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#gear:active { background: var(--line); }
+
+.hero-nudge {
+  display: inline-block;
+  margin-left: 8px;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px dashed var(--warn);
+  color: var(--warn);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 0 1px;
+  cursor: pointer;
+}
+
+.set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+.set-val {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  padding: 13px 14px;
+  min-height: 50px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sw-btn {
+  flex: none;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 8px 2px 8px 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sw-btn.on .sw { background: rgba(127, 209, 160, .3); }
+.sw-btn.on .knob { transform: translateX(18px); background: var(--accent); }
+
+.set-wide { width: 100%; margin-bottom: 8px; }
+.set-age { font-size: 13px; margin: 0 2px 10px; }
+.set-ok { color: var(--dim); }
+.set-stale { color: var(--warn); }
+
+.set-list {
+  margin: 8px 0 14px;
+  padding-left: 20px;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* a target changed for tonight only */
+.trow.tmp, .of.tmp { color: var(--warn); }
+.of.tmp { margin-left: 6px; font-size: 11px; }
+
+button.trow {
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+button.trow:active { background: var(--line); border-radius: 8px; }

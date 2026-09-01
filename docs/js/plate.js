@@ -14,15 +14,36 @@ export const LABELS = {
 
 export const UNITS = { cal: '', protein: 'g', carbs: 'g', fat: 'g', fiber: 'g' };
 
-// Per meal, not per day — a plate is one meal. Editable in a later step; the `on`
-// flag is the difference between a target and a number you just want to see.
-export const TARGETS = {
+// Per meal, not per day — a plate is one meal. `on` is the difference between a
+// target you're measured against and a number you just want to see.
+const DEFAULT_TARGETS = {
   cal: { value: 800, on: true },
   protein: { value: 60, on: true },
-  carbs: { value: null, on: false },
-  fat: { value: null, on: false },
-  fiber: { value: null, on: false },
+  carbs: { value: 90, on: false },
+  fat: { value: 25, on: false },
+  fiber: { value: 10, on: false },
 };
+
+// `temp` holds this-meal-only overrides, which never touch what's stored.
+export function targets(temp) {
+  const saved = store.get('targets') || {};
+  return Object.fromEntries(MACROS.map((m) => {
+    const base = { ...DEFAULT_TARGETS[m], ...(saved[m] || {}) };
+    const overridden = temp && temp[m] != null;
+    return [m, {
+      value: overridden ? temp[m] : base.value,
+      on: base.on,
+      def: base.value,
+      temp: overridden,
+    }];
+  }));
+}
+
+export function setTarget(macro, patch) {
+  const saved = { ...(store.get('targets') || {}) };
+  saved[macro] = { ...DEFAULT_TARGETS[macro], ...(saved[macro] || {}), ...patch };
+  store.set('targets', saved);
+}
 
 let entries = store.get('plate') || [];
 
