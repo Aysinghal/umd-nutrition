@@ -151,21 +151,34 @@ body.sheet-open { overflow: hidden; }
   border-top: 1px solid var(--line);
   border-radius: 16px 16px 0 0;
   padding: 0 12px calc(env(safe-area-inset-bottom) + 12px);
-  max-height: 80vh;
-  overflow-y: auto;
+  max-height: 85svh;
+  display: flex;
+  flex-direction: column;
   animation: rise .2s cubic-bezier(.2, .8, .3, 1);
-  /* keeps the browser from claiming vertical drags before the handler sees them */
-  touch-action: pan-y;
+  /* The sheet itself never scrolls, so the browser has no vertical gesture to claim
+     here and the drag handler always wins. Scrolling lives on .sheet-body. */
+  touch-action: none;
   will-change: transform;
 }
 
+.sheet-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* no rubber-band gap at the top edge */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  flex: 1;
+  min-height: 0;
+}
+
 .sheet-head {
-  /* the visible bar is 4px tall; the thing you can grab is 44 */
+  /* the visible bar is 5px tall; the thing you can grab is the whole strip */
   padding: 12px 0 8px;
   cursor: grab;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  flex: none;
 }
 
 .sheet-head:active { cursor: grabbing; }
@@ -178,7 +191,35 @@ body.sheet-open { overflow: hidden; }
   margin: 0 auto;
 }
 
+.sheet-titlerow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  touch-action: none;   /* dragging from the title works too */
+}
+
+.sheet-close {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--dim);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  flex: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sheet-close:active { background: var(--line); }
+
 .sheet-title {
+  flex: 1;
   margin: 4px 8px 10px;
   font-size: 13px;
   font-weight: 600;
@@ -520,6 +561,7 @@ body.sheet-open { overflow: hidden; }
   position: fixed;
   inset: 0;
   z-index: 20;
+  overscroll-behavior: contain;
   touch-action: pan-y;
   will-change: transform;
   background: #fff;

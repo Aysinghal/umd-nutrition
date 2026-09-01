@@ -16,7 +16,10 @@ function build() {
       <div class="sheet-head" data-close>
         <div class="sheet-grab"></div>
       </div>
-      <h2 class="sheet-title" id="sheet-title"></h2>
+      <div class="sheet-titlerow">
+        <h2 class="sheet-title" id="sheet-title"></h2>
+        <button class="sheet-close" data-close aria-label="Close">✕</button>
+      </div>
       <div class="sheet-body"></div>
     </div>`;
   document.body.appendChild(root);
@@ -28,8 +31,8 @@ function build() {
   // The sheet scrolls, so the drag only takes over at the top of its content —
   // except from the handle, which always grabs it.
   drag = draggable(root.querySelector('.sheet'), {
-    scroller: root.querySelector('.sheet'),
-    handle: '.sheet-head',
+    scroller: root.querySelector('.sheet-body'),
+    handle: '.sheet-head, .sheet-titlerow',
     onClose: close,
   });
   document.addEventListener('keydown', (e) => {
