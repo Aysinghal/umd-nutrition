@@ -32,6 +32,8 @@ export function draggable(panel, { scroller, onClose, handle }) {
 
   panel.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // a press that starts on a control is a tap, never a drag
+    if (e.target.closest('button, input, .opt')) return;
     // A drag from the handle always grabs the panel, wherever the content is scrolled.
     // The handle is the reliable path: it never scrolls, so the browser has no
     // competing gesture. Dragging from the body only works while it sits at the top.

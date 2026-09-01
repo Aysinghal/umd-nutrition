@@ -5,6 +5,19 @@ import { draggable } from './drag.js';
 let root = null;
 let onClose = null;
 let drag = null;
+let lockedAt = 0;
+
+function lockPage() {
+  lockedAt = window.scrollY;
+  document.body.style.top = `${-lockedAt}px`;
+  document.body.classList.add('sheet-open');
+}
+
+function unlockPage() {
+  document.body.classList.remove('sheet-open');
+  document.body.style.top = '';
+  window.scrollTo(0, lockedAt);
+}
 
 function build() {
   root = document.createElement('div');
@@ -18,9 +31,11 @@ function build() {
       </div>
       <div class="sheet-titlerow">
         <h2 class="sheet-title" id="sheet-title"></h2>
-        <button class="sheet-close" data-close aria-label="Close">✕</button>
       </div>
       <div class="sheet-body"></div>
+      <div class="sheet-foot">
+        <button class="sheet-close" data-close>Close</button>
+      </div>
     </div>`;
   document.body.appendChild(root);
 
@@ -32,7 +47,7 @@ function build() {
   // except from the handle, which always grabs it.
   drag = draggable(root.querySelector('.sheet'), {
     scroller: root.querySelector('.sheet-body'),
-    handle: '.sheet-head, .sheet-titlerow',
+    handle: '.sheet-head, .sheet-titlerow, .sheet-foot',
     onClose: close,
   });
   document.addEventListener('keydown', (e) => {
@@ -44,7 +59,7 @@ export function close() {
   if (!root || root.hidden) return;
   drag?.reset();
   root.hidden = true;
-  document.body.classList.remove('sheet-open');
+  unlockPage();
   const fn = onClose;
   onClose = null;
   fn?.();
@@ -76,8 +91,9 @@ export function pick({ title, options, current, onPick }) {
   };
 
   drag?.reset();
+  const wasOpen = !root.hidden;
   root.hidden = false;
-  document.body.classList.add('sheet-open');
+  if (!wasOpen) lockPage();
   root.querySelector('.opt.on, .opt')?.focus();
 }
 
@@ -92,8 +108,9 @@ export function panel({ title, html, onClick }) {
   body.onclick = onClick || null;
 
   drag?.reset();
+  const wasOpen = !root.hidden;
   root.hidden = false;
-  document.body.classList.add('sheet-open');
+  if (!wasOpen) lockPage();
 
   return (nextHtml) => {
     if (!root.hidden) body.innerHTML = nextHtml;

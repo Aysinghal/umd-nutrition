@@ -14,6 +14,8 @@
 
 * { box-sizing: border-box; }
 
+html { overscroll-behavior: none; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -130,7 +132,16 @@ body {
 
 /* --- slide-up sheet ------------------------------------------------------- */
 
-body.sheet-open { overflow: hidden; }
+/* overflow:hidden alone does not stop iOS bouncing the document, so the body is
+   pinned in place and its scroll position restored on close. */
+body.sheet-open {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 
 .sheet-root { position: fixed; inset: 0; z-index: 10; }
 .sheet-root[hidden] { display: none; }
@@ -199,19 +210,27 @@ body.sheet-open { overflow: hidden; }
   touch-action: none;   /* dragging from the title works too */
 }
 
+.sheet-foot {
+  flex: none;
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--line);
+  /* also a drag surface: it is already where the thumb rests */
+  touch-action: none;
+}
+
 .sheet-close {
+  display: block;
+  width: 100%;
   appearance: none;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--dim);
+  border-radius: 12px;
+  color: var(--text);
   font: inherit;
-  font-size: 17px;
-  line-height: 1;
-  width: 34px;
-  height: 34px;
-  margin-left: auto;
-  flex: none;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 15px;
+  min-height: 52px;
   cursor: pointer;
   touch-action: manipulation;
 }
