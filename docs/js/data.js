@@ -33,6 +33,15 @@ export function loadMenu(hall, date) {
   return menus.get(key);
 }
 
+// A day that fails to load shouldn't take a whole search down with it, so failures are
+// dropped rather than rejected.
+export async function loadMenus(days) {
+  const out = await Promise.allSettled(days.map(async (d) => ({
+    hall: d.hall, date: d.date, menu: await loadMenu(d.hall, d.date),
+  })));
+  return out.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+}
+
 // The menu file lists meals alphabetically; index.json lists them in the order they
 // actually happen. Always ask the index.
 export function mealsFor(index, hall, date) {

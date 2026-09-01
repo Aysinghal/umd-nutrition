@@ -1137,3 +1137,65 @@ button.trow:active { background: var(--line); border-radius: 8px; }
 }
 
 .d-mark.on { border-color: var(--warn); color: var(--warn); }
+
+/* --- search --------------------------------------------------------------- */
+
+/* Two .count buttons now sit at the end of the bar. Only the first claims the free
+   space, or flex would split it between them and push them apart. */
+.crumb .count + .count { margin-left: 0; }
+
+.qbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 36px;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+.mag {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.qwrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 14px;
+  min-height: 40px;
+  color: var(--dim);
+}
+
+.q {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;   /* anything smaller and iOS zooms the page on focus */
+  padding: 0;
+}
+
+.qdone { flex: none; }
+
+/* Empty states sit low on purpose: the widen button has to be in thumb reach, same
+   rule as the scroll spacer above the first row. */
+.msg.low { padding-top: 42vh; }
+.msg.low .widen { display: block; width: 100%; margin-top: 14px; }

@@ -1,4 +1,4 @@
-import { loadIndex, loadItems, loadMenu, mealsFor, hasDay, dataAgeDays } from './data.js';
+import { loadIndex, loadItems, loadMenu, loadMenus, mealsFor, hasDay, dataAgeDays } from './data.js';
 import { pick, panel, close as closeSheet, isOpen } from './sheet.js';
 import * as store from './store.js';
 import * as plate from './plate.js';
@@ -13,6 +13,7 @@ import { draggable } from './drag.js';
 import { openSettings } from './settings.js';
 import { backupAge } from './backup.js';
 import * as marks from './marks.js';
+import { narrow, wide, NEXT_SCOPE } from './search.js';
 
 const floor = () => getFilters().floor;
 
@@ -33,6 +34,7 @@ const state = {
   level: store.get('level'),
   rows: [],
   hiddenRows: [],
+  search: null,    // { q, scope, rows, loading } while the search bar is open
   loading: true,
   suggestIndex: null,
   labelName: null,
@@ -129,13 +131,23 @@ function rank(rows, sort = 'ratio') {
   });
 }
 
+// Shared by the list and by search, so a widened search can never surface something
+// the list itself would have filtered out.
+function allowed(id, item) {
+  const f = getFilters();
+  if (!f.showFlagged && item.suspect) return false;
+  if (!allowedAt(item, state.level)) return false;
+  // Hides items that declare the allergen. An item declaring none isn't proven
+  // free of it — see the note in the filters sheet.
+  if (f.avoid.some((a) => (item.allergens || []).includes(a))) return false;
+  return !marks.isHidden(id);
+}
+
 function rebuild() {
   const f = getFilters();
   const rows = collect(state.menu, state.meal, state.items)
     .filter((r) => f.showFlagged || !r.item.suspect)
     .filter((r) => allowedAt(r.item, state.level))
-    // Hides items that declare the allergen. An item declaring none isn't proven
-    // free of it — see the note in the filters sheet.
     .filter((r) => !f.avoid.some((a) => (r.item.allergens || []).includes(a)));
   state.hiddenRows = rows.filter((r) => marks.isHidden(r.id));
   // Favourites stay in state.rows so the hero count and the divider still describe
@@ -157,7 +169,7 @@ function rowHtml(r) {
   if (item.no_data) classes.push('nodata');
   else if ((item.protein ?? 0) < floor()) classes.push('low');
 
-  const where = [stations.join(' · '), item.serving].filter(Boolean).join(' · ');
+  const where = r.context ?? [stations.join(' · '), item.serving].filter(Boolean).join(' · ');
 
   const badge = item.override
     ? ` <span class="ov-badge">${esc(overrides.SOURCES[item.override].short)}</span>`
@@ -182,21 +194,45 @@ function rowHtml(r) {
   </div>`;
 }
 
+const MAG = '<svg class="mag" viewBox="0 0 20 20" aria-hidden="true">'
+  + '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17.5 17.5"/></svg>';
+
 function renderBar() {
+  if (state.search) {
+    // Never rebuilt while it's on screen: replacing the input would drop the caret and
+    // the keyboard mid-word.
+    if (el('q')) return;
+    el('crumb').innerHTML = `
+      <span class="qwrap">${MAG}<input id="q" class="q" type="text" autocomplete="off"
+        autocorrect="off" spellcheck="false" enterkeyhint="search"
+        placeholder="${esc(scopePlaceholder())}" value="${esc(state.search.q)}"></span>
+      <button class="chip qdone" data-chip="unsearch">Done</button>`;
+    el('q').focus();
+    return;
+  }
+
   const hall = state.index.halls.find((h) => h.id === state.hall)?.name ?? String(state.hall);
   el('crumb').innerHTML = `
     <button class="chip" data-chip="hall">${esc(shortHall(hall))}<i>▾</i></button>
     <button class="chip" data-chip="meal">${esc(state.meal ?? '—')}<i>▾</i></button>
     <button class="chip lvl" data-chip="level" title="Tap to cycle, hold to choose">Lvl ${state.level}<i>▾</i></button>
     <button class="count" data-chip="filters" aria-label="Filters"><span class="cnum">${
-      state.loading ? '…' : state.rows.length}</span><i class="fi">≡</i></button>`;
+      state.loading ? '…' : state.rows.length}</span><i class="fi">≡</i></button>
+    <button class="count qbtn" data-chip="search" aria-label="Search">${MAG}</button>`;
 }
+
+const scopePlaceholder = () => ({
+  meal: `Search ${state.meal ?? 'this meal'}`,
+  halls: 'Search all halls today',
+  dates: 'Search all halls, all days',
+}[state.search.scope]);
 
 function renderList() {
   if (state.loading) {
     el('list').innerHTML = '<div class="msg">Loading menu…</div>';
     return;
   }
+  if (state.search) return renderSearch();
 
   // The floor is a ranking device, not a filter — everything is still on screen, just
   // in order. A divider marks where the contenders stop.
@@ -228,6 +264,39 @@ function renderList() {
   el('list').innerHTML = parts.join('') || '<div class="msg">Nothing matches at this diet level.</div>';
 }
 
+const SCOPE_NAME = { meal: 'this meal', halls: 'all halls today', dates: 'the whole week' };
+
+function renderSearch() {
+  const s = state.search;
+  const box = el('list');
+
+  if (!s.q.trim()) {
+    box.innerHTML = `<div class="msg low">Searching ${esc(SCOPE_NAME[s.scope])}.</div>`;
+    return;
+  }
+  if (s.loading) {
+    box.innerHTML = '<div class="msg low">Searching…</div>';
+    return;
+  }
+
+  if (!s.rows.length) {
+    const next = NEXT_SCOPE[s.scope];
+    const hall = state.index.halls.find((h) => h.id === state.hall);
+    const where = s.scope === 'meal'
+      ? `at ${esc(shortHall(hall?.name ?? ''))} ${esc((state.meal ?? '').toLowerCase())}`
+      : s.scope === 'halls' ? 'at any hall today' : 'anywhere this week';
+    // Widening is a tap, never automatic, so you always know which menu you're looking at.
+    box.innerHTML = `<div class="msg low">No matches ${where}.
+      ${next ? `<button class="go widen" data-widen="${next}">${
+        next === 'halls' ? 'Search all halls' : 'Search all dates'}</button>` : ''}</div>`;
+    return;
+  }
+
+  const n = s.rows.length;
+  box.innerHTML = `<div class="divider">${n} match${n === 1 ? '' : 'es'} in ${
+    esc(SCOPE_NAME[s.scope])}</div>` + s.rows.map(rowHtml).join('');
+}
+
 // The dock grows when the plate has food on it, so the list's bottom padding and the
 // toast's offset can't be a fixed number.
 function syncDockHeight() {
@@ -257,7 +326,7 @@ function renderHero() {
   el('hero-meta').innerHTML = `${when}${nudge}`;
   el('hero-meta').classList.toggle('hero-stale', dataAge != null && dataAge >= 1);
   const n = el('hero-nudge');
-  if (n) n.onclick = () => openSettings(() => { rebuild(); render(); });
+  if (n) n.onclick = () => openSettings(() => refresh());
 }
 
 function render() {
@@ -312,6 +381,14 @@ function wireList() {
     if (held) { held = false; return; } // the long-press already opened the sheet
     if (e.target.closest('[data-hidden]')) return openHiddenSheet();
 
+    const widen = e.target.closest('[data-widen]');
+    if (widen) {
+      state.search.scope = widen.dataset.widen;
+      const q = el('q');
+      if (q) q.placeholder = scopePlaceholder();
+      return runSearch();
+    }
+
     const row = e.target.closest('[data-row]');
     const btn = e.target.closest('[data-add]');
     if (!btn) {
@@ -340,6 +417,64 @@ function wireList() {
   el('plate').addEventListener('click', openPlatePanel);
 }
 
+// --- search -------------------------------------------------------------------
+
+function openSearch() {
+  state.search = { q: '', scope: 'meal', rows: [], loading: false };
+  render();
+}
+
+function closeSearch() {
+  state.search = null;
+  render();
+}
+
+const hallName = (id) =>
+  shortHall(state.index.halls.find((h) => h.id === id)?.name ?? String(id));
+
+const dayLabel = (iso) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+async function runSearch() {
+  const s = state.search;
+  if (!s) return;
+  const q = s.q.trim();
+  if (!q) return renderList();
+
+  if (s.scope === 'meal') {
+    s.rows = rank(narrow(state.rows, q), getFilters().sort);
+    return renderList();
+  }
+
+  const days = state.index.days.filter(
+    (d) => d.status === 'ok' && (s.scope === 'dates' || d.date === state.date));
+
+  s.loading = true;
+  renderList();
+  const menus = await loadMenus(days);
+
+  // The files come off the phone, but the query can still have moved on meanwhile.
+  if (state.search !== s || s.q.trim() !== q) return;
+
+  const hits = wide(menus, state.items, q, state.date, allowed);
+  for (const r of hits) {
+    // Where and when, because at this width the hall and meal on the chips is no
+    // longer the answer. The date is only worth printing once it can vary.
+    r.context = [hallName(r.hall), s.scope === 'dates' ? dayLabel(r.date) : null, r.meal]
+      .filter(Boolean).join(' · ');
+  }
+  s.rows = rank(hits, getFilters().sort);
+  s.loading = false;
+  renderList();
+}
+
+// Rebuild the list and, if a search is open, re-run it over the new rows.
+function refresh() {
+  rebuild();
+  render();
+  if (state.search) runSearch();
+}
+
 // A long-press lands here rather than starring outright: there are two things you could
 // mean, and a mis-press while scrolling shouldn't silently rearrange the list.
 function openMarkSheet(id) {
@@ -357,8 +492,7 @@ function openMarkSheet(id) {
       else if (e.target.closest('[data-hide]')) marks.toggleHidden(id);
       else return;
       closeSheet();
-      rebuild();
-      render();
+      refresh();
     },
   });
 }
@@ -383,8 +517,7 @@ function openHiddenSheet() {
       const b = e.target.closest('[data-unhide]');
       if (!b) return;
       marks.unhide(b.dataset.unhide);
-      rebuild();
-      render();
+      refresh();
       if (state.hiddenRows.length) openHiddenSheet();
       else closeSheet();
     },
@@ -394,14 +527,15 @@ function openHiddenSheet() {
 function showDetail(id) {
   const item = state.items[id];
   if (!item) return;
-  const row = state.rows.find((r) => r.id === id);
+  const row = (state.search?.rows ?? []).find((r) => r.id === id)
+    ?? state.rows.find((r) => r.id === id);
   openDetail({
     id,
     item,
     items: state.items,
     stations: row ? row.stations : [],
     suggestIndex: state.suggestIndex,
-    onChange: () => { rebuild(); render(); },
+    onChange: () => refresh(),
     // Label a single item at whatever amount you actually took.
     onLabel: (itemId, qty) => {
       closeSheet();
@@ -794,10 +928,18 @@ function wireBar() {
   bar.addEventListener('pointercancel', cancel);
   bar.addEventListener('pointermove', cancel);
 
+  bar.addEventListener('input', (e) => {
+    if (!state.search || e.target.id !== 'q') return;
+    state.search.q = e.target.value;
+    runSearch();
+  });
+
   bar.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-chip]');
     if (!chip) return;
-    if (chip.dataset.chip === 'filters') openSettings(() => { rebuild(); render(); });
+    if (chip.dataset.chip === 'search') openSearch();
+    else if (chip.dataset.chip === 'unsearch') closeSearch();
+    else if (chip.dataset.chip === 'filters') openSettings(() => refresh());
     else if (chip.dataset.chip === 'hall') openHallSheet();
     else if (chip.dataset.chip === 'meal') openMealSheet();
     else if (chip.dataset.chip === 'level') {
