@@ -10,6 +10,9 @@ import vm from 'node:vm';
 
 const DOCS = fileURLToPath(new URL('../docs/', import.meta.url));
 const BASE = 'https://aysinghal.github.io/umd-nutrition/';
+const SW_VERSION = Number(
+  readFileSync(fileURLToPath(new URL('../docs/sw.js', import.meta.url)), 'utf8')
+    .match(/const VERSION = (\d+)/)[1]);
 
 // --- a fake network, backed by the real docs/ tree ----------------------------
 
@@ -107,7 +110,7 @@ const ok = (name, cond, detail = '') => {
   if (cond) { pass++; console.log(`  ok   ${name}`); }
   else { fails.push(name); console.log(`  FAIL ${name} ${detail}`); }
 };
-const shellKeys = () => [...store.get('umd-shell-v8').m.keys()].map((u) => u.replace(BASE, ''));
+const shellKeys = () => [...store.get(`umd-shell-v${SW_VERSION}`).m.keys()].map((u) => u.replace(BASE, ''));
 // 'keep-me' is a sentinel the activate test plants to prove a version bump doesn't
 // wipe the data cache. It isn't real content, so counts exclude it.
 const dataKeys = () => [...store.get('umd-data').m.keys()]
@@ -123,7 +126,9 @@ const onDisk = readdirSync(join(DOCS, 'js')).map((f) => `js/${f}`);
 const cached = shellKeys();
 const missed = onDisk.filter((f) => !cached.includes(f));
 ok(`all ${onDisk.length} js modules are in the precache list`, missed.length === 0, missed.join(', '));
-ok('shell cache holds 22 entries', cached.length === 22, `got ${cached.length}`);
+// 7 non-module entries: './', index.html, the manifest, the stylesheet, three icons.
+ok('shell cache holds every listed file and nothing else',
+  cached.length === onDisk.length + 7, `got ${cached.length}, expected ${onDisk.length + 7}`);
 
 console.log('\noffline, shell');
 online = false;
@@ -134,12 +139,12 @@ ok('uncached + offline gives 504, not a throw', (await (await req('js/nope.js'))
 online = true;
 
 console.log('\nactivate');
-store.set('umd-shell-v7', new FakeCache());
+store.set(`umd-shell-v${SW_VERSION - 1}`, new FakeCache());
 (await caches.open('umd-data')).m.set('keep-me', { body: 'x', status: 200 });
 log = [];
 await fire('activate');
-ok('old shell version deleted', !store.has('umd-shell-v7'));
-ok('current shell kept', store.has('umd-shell-v8'));
+ok('old shell version deleted', !store.has(`umd-shell-v${SW_VERSION - 1}`));
+ok('current shell kept', store.has(`umd-shell-v${SW_VERSION}`));
 ok('data cache survives a version bump', (await caches.open('umd-data')).m.has('keep-me'));
 
 console.log('\nfirst sync');

@@ -5,6 +5,7 @@ import { openKeypad } from './keypad.js';
 import * as plate from './plate.js';
 import * as overrides from './overrides.js';
 import { suggestFor } from './suggest.js';
+import * as marks from './marks.js';
 import { esc, num, fmtQty } from './util.js';
 
 const FIELD_LABELS = { cal: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat' };
@@ -83,6 +84,12 @@ function render() {
         <button class="go" data-add>${plate.qtyOf(id) ? 'Update plate' : 'Add to plate'}</button>
         <button data-label>Label</button>
       </div>
+      <div class="d-marks">
+        <button class="d-mark${marks.isFav(id) ? ' on' : ''}" data-fav
+          aria-pressed="${marks.isFav(id)}">${marks.isFav(id) ? '★ Favorite' : '☆ Favorite'}</button>
+        <button class="d-mark${marks.isHidden(id) ? ' on' : ''}" data-hide
+          aria-pressed="${marks.isHidden(id)}">${marks.isHidden(id) ? 'Hidden' : 'Hide'}</button>
+      </div>
       <div class="d-editrow">${invite}</div>`,
     onClick: handle,
   });
@@ -112,6 +119,16 @@ function handle(e) {
   if (e.target.closest('[data-label]')) return ctx.onLabel(id, ctx.qty);
   if (e.target.closest('[data-revert]')) {
     overrides.revert(ctx.items, id);
+    ctx.onChange();
+    return render();
+  }
+  if (e.target.closest('[data-fav]')) {
+    marks.toggleFav(id);
+    ctx.onChange();
+    return render();
+  }
+  if (e.target.closest('[data-hide]')) {
+    marks.toggleHidden(id);
     ctx.onChange();
     return render();
   }

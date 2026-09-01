@@ -12,6 +12,7 @@ import { get as getFilters } from './filters.js';
 import { draggable } from './drag.js';
 import { openSettings } from './settings.js';
 import { backupAge } from './backup.js';
+import * as marks from './marks.js';
 
 const floor = () => getFilters().floor;
 
@@ -31,6 +32,7 @@ const state = {
   meal: null,
   level: store.get('level'),
   rows: [],
+  hiddenRows: [],
   loading: true,
   suggestIndex: null,
   labelName: null,
@@ -135,7 +137,10 @@ function rebuild() {
     // Hides items that declare the allergen. An item declaring none isn't proven
     // free of it — see the note in the filters sheet.
     .filter((r) => !f.avoid.some((a) => (r.item.allergens || []).includes(a)));
-  state.rows = rank(rows, f.sort);
+  state.hiddenRows = rows.filter((r) => marks.isHidden(r.id));
+  // Favourites stay in state.rows so the hero count and the divider still describe
+  // everything on screen; renderList is what lifts them into their own section.
+  state.rows = rank(rows.filter((r) => !marks.isHidden(r.id)), f.sort);
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -167,7 +172,7 @@ function rowHtml(r) {
 
   return `<div class="${classes.join(' ')}" data-row="${esc(r.id)}">
     <div class="row-main">
-      <div class="name">${esc(item.name)}</div>
+      <div class="name">${marks.isFav(r.id) ? '<span class="star">★</span> ' : ''}${esc(item.name)}</div>
       <div class="where">${esc(where)}</div>
       <div class="macros">${macros}</div>
       ${item.suspect ? `<div class="flag-why">${esc(item.suspect)}</div>` : ''}
@@ -195,15 +200,31 @@ function renderList() {
 
   // The floor is a ranking device, not a filter — everything is still on screen, just
   // in order. A divider marks where the contenders stop.
+  const favs = state.rows.filter((r) => marks.isFav(r.id));
+  const rest = state.rows.filter((r) => !marks.isFav(r.id));
+
   const parts = [];
+  // Starred items you can actually eat tonight, in context with the rest of the menu
+  // rather than on a screen of their own. Ones that aren't being served just don't show.
+  if (favs.length) {
+    parts.push('<div class="divider">Favorites</div>');
+    parts.push(...favs.map(rowHtml));
+  }
+
   let marked = false;
-  for (const r of state.rows) {
+  for (const r of rest) {
     if (!marked && (r.ratio == null || (r.item.protein ?? 0) < floor())) {
       parts.push(`<div class="divider">under ${floor()} g protein</div>`);
       marked = true;
     }
     parts.push(rowHtml(r));
   }
+
+  // Bottom of the list on purpose: these are things you said you didn't want to see,
+  // so the count shouldn't sit above the food. Tappable, so nothing vanishes for good.
+  const n = state.hiddenRows.length;
+  if (n) parts.push(`<button class="hidden-line" data-hidden>${n} hidden</button>`);
+
   el('list').innerHTML = parts.join('') || '<div class="msg">Nothing matches at this diet level.</div>';
 }
 
@@ -269,7 +290,28 @@ function toast(message, undo) {
 }
 
 function wireList() {
-  el('list').addEventListener('click', (e) => {
+  const list = el('list');
+
+  // Same shape as the long-press on the diet chip: a timer that any move or early
+  // release cancels, and a flag so the tap that follows doesn't also open the detail.
+  let held = false;
+  let timer = null;
+  const cancel = () => clearTimeout(timer);
+
+  list.addEventListener('pointerdown', (e) => {
+    const row = e.target.closest('[data-row]');
+    if (!row || e.target.closest('[data-add]')) return;
+    held = false;
+    timer = setTimeout(() => { held = true; openMarkSheet(row.dataset.row); }, 450);
+  });
+  list.addEventListener('pointerup', cancel);
+  list.addEventListener('pointercancel', cancel);
+  list.addEventListener('pointermove', cancel);
+
+  list.addEventListener('click', (e) => {
+    if (held) { held = false; return; } // the long-press already opened the sheet
+    if (e.target.closest('[data-hidden]')) return openHiddenSheet();
+
     const row = e.target.closest('[data-row]');
     const btn = e.target.closest('[data-add]');
     if (!btn) {
@@ -296,6 +338,57 @@ function wireList() {
   });
 
   el('plate').addEventListener('click', openPlatePanel);
+}
+
+// A long-press lands here rather than starring outright: there are two things you could
+// mean, and a mis-press while scrolling shouldn't silently rearrange the list.
+function openMarkSheet(id) {
+  const item = state.items[id];
+  if (!item) return;
+  panel({
+    title: item.name,
+    html: `
+      <div class="fill-actions">
+        <button class="go" data-fav>${marks.isFav(id) ? 'Remove favorite' : 'Add to favorites'}</button>
+        <button data-hide>Hide</button>
+      </div>`,
+    onClick: (e) => {
+      if (e.target.closest('[data-fav]')) marks.toggleFav(id);
+      else if (e.target.closest('[data-hide]')) marks.toggleHidden(id);
+      else return;
+      closeSheet();
+      rebuild();
+      render();
+    },
+  });
+}
+
+// Only lists what's hidden and on tonight's menu, because that is what the count on the
+// list means. Anything else hidden is named but not actionable from here.
+function openHiddenSheet() {
+  const rows = state.hiddenRows;
+  const elsewhere = marks.hiddenCount() - rows.length;
+  panel({
+    title: `${rows.length} hidden`,
+    html: `
+      <p class="pad-sub">Hiding is permanent until you undo it, and applies at every hall
+        on every day — not just tonight.</p>
+      ${rows.map((r) => `<button class="fill-row" data-unhide="${esc(r.id)}">
+        <span>${esc(r.item.name)}</span><span class="fill-v">unhide</span></button>`).join('')}
+      ${elsewhere > 0
+        ? `<p class="pad-sub">${elsewhere} more hidden ${elsewhere === 1 ? 'item is' : 'items are'}
+             not on this menu, so ${elsewhere === 1 ? 'it isn' : 'they aren'}'t listed here.</p>`
+        : ''}`,
+    onClick: (e) => {
+      const b = e.target.closest('[data-unhide]');
+      if (!b) return;
+      marks.unhide(b.dataset.unhide);
+      rebuild();
+      render();
+      if (state.hiddenRows.length) openHiddenSheet();
+      else closeSheet();
+    },
+  });
 }
 
 function showDetail(id) {

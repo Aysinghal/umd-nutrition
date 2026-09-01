@@ -1100,3 +1100,40 @@ button.trow:active { background: var(--line); border-radius: 8px; }
 /* The app runs off a copy on the phone, so the hero has to be able to say the copy
    is old. Same line as "menu updated today", just coloured when it matters. */
 .hero-meta.hero-stale { color: var(--warn); }
+
+/* --- favorites and hiding ------------------------------------------------- */
+
+.star { color: var(--warn); font-size: 12px; vertical-align: 1px; }
+
+/* Bottom of the list, and quiet: it exists so nothing vanishes without a trace, not
+   to invite a tap. */
+.hidden-line {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 18px 16px 8px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.d-marks { display: flex; gap: 8px; padding: 10px 0 0; }
+
+.d-mark {
+  flex: 1;
+  min-height: 44px;
+  appearance: none;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+}
+
+.d-mark.on { border-color: var(--warn); color: var(--warn); }

@@ -22,6 +22,8 @@ const DEFAULTS = {
   sort: 'ratio',
   floor: 10,
   avoid: [],       // allergen names to exclude
+  favorites: [],   // item ids pinned above the ranked list
+  hidden: [],      // item ids kept out of the list entirely
   showFlagged: false,
 };
 
