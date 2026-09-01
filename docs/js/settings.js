@@ -1,9 +1,11 @@
-// Targets, backup and restore.
+// One sheet for everything you can change: what the list shows, your targets, backup.
 
 import { panel } from './sheet.js';
 import { openKeypad } from './keypad.js';
 import * as plate from './plate.js';
 import * as backup from './backup.js';
+import * as store from './store.js';
+import { SORTS, ALLERGENS, get as getFilters, reset as resetFilters } from './filters.js';
 import { esc } from './util.js';
 
 let notify = null;
@@ -22,11 +24,39 @@ function ageLine() {
 }
 
 function draw() {
+  const f = getFilters();
   const t = plate.targets();
 
   panel({
     title: 'Settings',
     html: `
+      <p class="f-head">Sort by</p>
+      <div class="f-chips">
+        ${Object.entries(SORTS).map(([k, label]) =>
+          `<button class="f-chip${f.sort === k ? ' on' : ''}" data-sort="${k}">${label}</button>`).join('')}
+      </div>
+
+      <button class="fill-row" data-floor>
+        <span>Minimum protein<span class="d-was">ranks below this, never hidden</span></span>
+        <span class="fill-v">${f.floor} g</span>
+      </button>
+
+      <p class="f-head">Avoid</p>
+      <div class="f-chips">
+        ${ALLERGENS.map(([name, n]) =>
+          `<button class="f-chip${f.avoid.includes(name) ? ' on' : ''}" data-avoid="${name}">${name}
+            <span class="f-n">${n}</span></button>`).join('')}
+      </div>
+      <p class="f-note">Hides items that declare it. Not reliable for a real allergy.</p>
+
+      <div class="set-row">
+        <span class="set-label">Show flagged items<span class="d-was">29 items whose numbers can't be true</span></span>
+        <button class="sw-btn${f.showFlagged ? ' on' : ''}" data-flagged
+          aria-pressed="${f.showFlagged}" aria-label="Show flagged items">
+          <span class="sw" aria-hidden="true"><span class="knob"></span></span>
+        </button>
+      </div>
+
       <p class="f-head">Targets, per meal</p>
       ${plate.MACROS.map((m) => `
         <div class="set-row">
@@ -39,28 +69,45 @@ function draw() {
             <span class="sw" aria-hidden="true"><span class="knob"></span></span>
           </button>
         </div>`).join('')}
-      <p class="f-note">A target that is on gets a bar you are measured against. Off means
-        the number still shows, without judgement.</p>
+      <p class="f-note">On gets a bar you are measured against. Off just shows the number.</p>
 
       <p class="f-head">Backup</p>
       <p class="set-age">${ageLine()}</p>
       <button class="go set-wide" data-save>Back up now</button>
       <button class="fill-row set-wide" data-load>
-        <span>Restore from a file<span class="d-was">replaces everything on this device</span></span>
+        <span>Restore from a file</span>
       </button>
       <input type="file" id="set-file" accept="application/json,.json" hidden>
-      <p class="f-note">No app can write to your Files automatically on an iPhone, so this
-        is one tap when you think of it. Installing to the Home Screen is what protects
-        the data day to day.</p>`,
+
+      <div class="panel-actions"><button class="danger" data-reset>Reset filters</button></div>`,
     onClick: handle,
   });
 }
 
 function handle(e) {
+  const sort = e.target.closest('[data-sort]');
+  const avoid = e.target.closest('[data-avoid]');
   const edit = e.target.closest('[data-edit]');
   const toggle = e.target.closest('[data-toggle]');
 
-  if (edit) {
+  if (sort) store.set('sort', sort.dataset.sort);
+  else if (avoid) {
+    const name = avoid.dataset.avoid;
+    const list = store.get('avoid') || [];
+    store.set('avoid', list.includes(name) ? list.filter((a) => a !== name) : [...list, name]);
+  } else if (e.target.closest('[data-flagged]')) store.set('showFlagged', !store.get('showFlagged'));
+  else if (e.target.closest('[data-reset]')) resetFilters();
+  else if (toggle) {
+    const m = toggle.dataset.toggle;
+    plate.setTarget(m, { on: !plate.targets()[m].on });
+  } else if (e.target.closest('[data-floor]')) {
+    return openKeypad({
+      title: 'Minimum protein',
+      subtitle: 'items below this rank under the divider',
+      initial: store.get('floor'),
+      onDone: (v) => { store.set('floor', v); notify?.(); draw(); },
+    });
+  } else if (edit) {
     const m = edit.dataset.edit;
     return openKeypad({
       title: `${plate.LABELS[m]} target`,
@@ -68,21 +115,10 @@ function handle(e) {
       initial: plate.targets()[m].value,
       onDone: (v) => { plate.setTarget(m, { value: v }); notify?.(); draw(); },
     });
-  }
-
-  if (toggle) {
-    const m = toggle.dataset.toggle;
-    plate.setTarget(m, { on: !plate.targets()[m].on });
-    notify?.();
-    return draw();
-  }
-
-  if (e.target.closest('[data-save]')) {
+  } else if (e.target.closest('[data-save]')) {
     backup.save().then((how) => { if (how !== 'cancelled') draw(); });
     return;
-  }
-
-  if (e.target.closest('[data-load]')) {
+  } else if (e.target.closest('[data-load]')) {
     const input = document.getElementById('set-file');
     input.onchange = () => {
       const file = input.files?.[0];
@@ -90,7 +126,11 @@ function handle(e) {
       input.value = '';
     };
     input.click();
-  }
+    return;
+  } else return;
+
+  notify?.();
+  draw();
 }
 
 // Never overwrite silently — say what is in the file first.
@@ -101,8 +141,7 @@ function confirmRestore(file) {
       html: `
         <p class="pad-sub">${esc(file.name)}</p>
         <ul class="set-list">${backup.describe(data).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
-        <p class="d-warn">This replaces everything currently on this device. The page will
-          reload.</p>
+        <p class="d-warn">This replaces everything on this device. The page will reload.</p>
         <div class="fill-actions">
           <button data-cancel>Cancel</button>
           <button class="go" data-confirm>Restore</button>
@@ -114,21 +153,18 @@ function confirmRestore(file) {
           backup.restore(data);
           location.reload();
         } catch (err) {
-          panel({
-            title: 'Could not restore',
-            html: `<p class="d-warn">${esc(err.message)}</p>
-              <div class="fill-actions"><button class="go" data-cancel>Back</button></div>`,
-            onClick: () => draw(),
-          });
+          fail(err.message);
         }
       },
     });
-  }).catch((err) => {
-    panel({
-      title: 'Could not read that file',
-      html: `<p class="d-warn">${esc(err.message)}</p>
-        <div class="fill-actions"><button class="go" data-cancel>Back</button></div>`,
-      onClick: () => draw(),
-    });
+  }).catch((err) => fail(err.message));
+}
+
+function fail(message) {
+  panel({
+    title: 'Could not restore',
+    html: `<p class="d-warn">${esc(message)}</p>
+      <div class="fill-actions"><button class="go" data-back>Back</button></div>`,
+    onClick: () => draw(),
   });
 }

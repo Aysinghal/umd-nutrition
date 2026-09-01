@@ -8,7 +8,7 @@ import { labelHtml } from './label.js';
 import { openDetail } from './detail.js';
 import * as overrides from './overrides.js';
 import { esc, num, fmtQty } from './util.js';
-import { openFilters, get as getFilters } from './filters.js';
+import { get as getFilters } from './filters.js';
 import { draggable } from './drag.js';
 import { openSettings } from './settings.js';
 import { backupAge } from './backup.js';
@@ -211,7 +211,7 @@ function renderHero() {
     : '';
   el('hero-meta').innerHTML = `menu updated ${esc(state.builtOn ?? '')}${nudge}`;
   const n = el('hero-nudge');
-  if (n) n.onclick = () => openSettings(() => render());
+  if (n) n.onclick = () => openSettings(() => { rebuild(); render(); });
 }
 
 function render() {
@@ -678,7 +678,7 @@ function wireBar() {
   bar.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-chip]');
     if (!chip) return;
-    if (chip.dataset.chip === 'filters') openFilters(() => { rebuild(); render(); });
+    if (chip.dataset.chip === 'filters') openSettings(() => { rebuild(); render(); });
     else if (chip.dataset.chip === 'hall') openHallSheet();
     else if (chip.dataset.chip === 'meal') openMealSheet();
     else if (chip.dataset.chip === 'level') {
@@ -724,7 +724,6 @@ async function main() {
     render();
     wireBar();
     wireList();
-    el('gear').addEventListener('click', () => openSettings(() => render()));
     store.requestPersistence();
     window.__stage = 'done';
   } catch (err) {
