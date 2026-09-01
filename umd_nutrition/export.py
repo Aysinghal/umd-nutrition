@@ -42,11 +42,13 @@ class ExportSummary:
     days: int = 0
     entries: int = 0
     bytes_written: int = 0
+    stale_removed: int = 0
 
     def report(self) -> str:
+        stale = f", removed {self.stale_removed} stale" if self.stale_removed else ""
         return (
-            f"exported {self.items} items, {self.days} days, {self.entries} entries "
-            f"({self.bytes_written / 1024:.0f} KB)"
+            f"exported {self.items} items, {self.days} days, {self.entries} entries"
+            f"{stale} ({self.bytes_written / 1024:.0f} KB)"
         )
 
 
@@ -160,6 +162,7 @@ def export(conn: sqlite3.Connection, out_dir: Path | str) -> ExportSummary:
             "FROM menu_days ORDER BY date, location_num"
         )
     )
+    written: set[str] = set()
     for day in days:
         if day["status"] != "ok":
             continue
@@ -168,8 +171,20 @@ def export(conn: sqlite3.Connection, out_dir: Path | str) -> ExportSummary:
         summary.entries += sum(
             len(s["items"]) for m in payload["meals"] for s in m["stations"]
         )
-        summary.bytes_written += _write(out / "menu" / f"{hall}-{date}.json", payload)
+        name = f"{hall}-{date}.json"
+        summary.bytes_written += _write(out / "menu" / name, payload)
+        written.add(name)
         summary.days += 1
+
+    # items.json is one file and gets overwritten, but menu days are written one per
+    # file. Without this, every day pruned from the database leaves its file behind
+    # forever — about a thousand dead files a year, all committed to the repo.
+    menu_dir = out / "menu"
+    if menu_dir.is_dir():
+        for path in menu_dir.glob("*.json"):
+            if path.name not in written:
+                path.unlink()
+                summary.stale_removed += 1
 
     index = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),

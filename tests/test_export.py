@@ -180,3 +180,26 @@ def test_export_overwrites_cleanly(exported) -> None:
     first = (out / "items.json").read_text(encoding="utf-8")
     export(conn, out)
     assert (out / "items.json").read_text(encoding="utf-8") == first
+
+
+def test_menu_files_for_days_no_longer_exported_are_deleted(exported) -> None:
+    """A day pruned from the database must not leave its file behind forever."""
+    out, _, conn = exported
+    stale = out / "menu" / "16-2020-01-01.json"
+    stale.write_text('{"stale": true}', encoding="utf-8")
+
+    summary = export(conn, out)
+
+    assert not stale.exists()
+    assert summary.stale_removed == 1
+    assert (out / "menu" / "16-2026-08-31.json").exists()
+
+
+def test_cleanup_leaves_a_clean_export_untouched(exported) -> None:
+    out, _, conn = exported
+    before = sorted(p.name for p in (out / "menu").glob("*.json"))
+
+    summary = export(conn, out)
+
+    assert summary.stale_removed == 0
+    assert sorted(p.name for p in (out / "menu").glob("*.json")) == before
