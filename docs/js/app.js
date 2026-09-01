@@ -9,6 +9,7 @@ import { openDetail } from './detail.js';
 import * as overrides from './overrides.js';
 import { esc, num, fmtQty } from './util.js';
 import { openFilters, get as getFilters } from './filters.js';
+import { draggable } from './drag.js';
 
 const floor = () => getFilters().floor;
 
@@ -188,7 +189,23 @@ function syncDockHeight() {
   document.documentElement.style.setProperty('--dock-h', `${h}px`);
 }
 
+// The spacer earns its space: what you're looking at, and how fresh it is.
+function renderHero() {
+  const hall = state.index.halls.find((h) => h.id === state.hall);
+  const day = new Date(`${state.date}T12:00:00`);
+  const over = state.rows.filter((r) => (r.item.protein ?? 0) >= floor()).length;
+
+  el('hero-date').textContent =
+    day.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  el('hero-where').textContent = hall ? shortHall(hall.name) : 'UMD Nutrition';
+  el('hero-sub').textContent = state.loading
+    ? state.meal ?? ''
+    : `${state.meal} · ${state.rows.length} items, ${over} over ${floor()} g protein`;
+  el('hero-meta').textContent = `menu updated ${state.builtOn ?? ''}`;
+}
+
 function render() {
+  renderHero();
   renderBar();
   renderList();
   renderPlate();
@@ -270,17 +287,21 @@ function showSingleLabel(id, qty) {
   const sums = Object.fromEntries(plate.LABEL_FIELDS.map((f) => [f, (item[f] || 0) * qty]));
   const view = el('labelview');
   view.innerHTML = `
-    <div class="lv-bar"><button data-close-label>Done</button>
-      <span class="lv-single">${esc(item.name)}</span></div>
+    <div class="lv-grab"><span></span></div>
     ${item.no_data ? '<p class="lv-warn">This item has no published nutrition. The label below is all zeroes.</p>' : ''}
     ${labelHtml({
       name: item.name,
       servingSize: `${fmtQty(qty)} \u00d7 ${item.serving || 'serving'}`,
       sums,
     })}
-    <p class="lv-note">Turn your screen brightness up before scanning.</p>`;
+    <p class="lv-note">Turn your screen brightness up before scanning.</p>
+    <div class="lv-bar">
+      <span class="lv-single">${esc(item.name)}</span>
+      <button data-close-label>Done</button>
+    </div>`;
   view.hidden = false;
   view.querySelector('[data-close-label]').onclick = () => { view.hidden = true; };
+  wireLabelDrag();
 }
 
 // --- the FoodNoms label -------------------------------------------------------
@@ -354,6 +375,18 @@ function openFillIn(id, carried) {
   });
 }
 
+let labelDrag = null;
+
+function wireLabelDrag() {
+  const view = el('labelview');
+  if (labelDrag) { labelDrag.reset(); return; }
+  labelDrag = draggable(view, {
+    scroller: view,
+    handle: '.lv-grab',
+    onClose: () => { view.hidden = true; },
+  });
+}
+
 function showLabel() {
   closeSheet();
   const { sums } = plate.totals(state.items, plate.LABEL_FIELDS, skipped);
@@ -361,13 +394,14 @@ function showLabel() {
 
   const view = el('labelview');
   view.innerHTML = `
-    <div class="lv-bar">
-      <button data-close-label>Done</button>
-      <input id="lv-name" value="${esc(state.labelName ?? plateName())}" aria-label="Label name">
-    </div>
+    <div class="lv-grab"><span></span></div>
     ${left.length ? `<p class="lv-warn">Not included: ${esc(left.join(', '))}</p>` : ''}
     ${labelHtml({ name: state.labelName ?? plateName(), servingSize: '1 plate', sums })}
-    <p class="lv-note">Turn your screen brightness up before scanning.</p>`;
+    <p class="lv-note">Turn your screen brightness up before scanning.</p>
+    <div class="lv-bar">
+      <input id="lv-name" value="${esc(state.labelName ?? plateName())}" aria-label="Label name">
+      <button data-close-label>Done</button>
+    </div>`;
   view.hidden = false;
 
   const nameInput = view.querySelector('#lv-name');
@@ -376,6 +410,7 @@ function showLabel() {
     view.querySelector('.lb-name').textContent = nameInput.value;
   };
   view.querySelector('[data-close-label]').onclick = () => { view.hidden = true; };
+  wireLabelDrag();
 }
 
 // --- the plate ---------------------------------------------------------------
@@ -647,6 +682,9 @@ async function main() {
     }
 
     state.meal = guessMeal(mealsFor(index, state.hall, state.date));
+
+    const built = new Date(index.generated_at);
+    state.builtOn = built.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
     window.__stage = `fetching menu ${state.hall}-${state.date}`;
     state.menu = await loadMenu(state.hall, state.date);

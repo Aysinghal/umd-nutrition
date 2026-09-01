@@ -1,7 +1,10 @@
 // The slide-up panel. Built once, reused by every sheet in the app.
 
+import { draggable } from './drag.js';
+
 let root = null;
 let onClose = null;
+let drag = null;
 
 function build() {
   root = document.createElement('div');
@@ -10,14 +13,24 @@ function build() {
   root.innerHTML = `
     <div class="sheet-back" data-close></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-      <div class="sheet-grab" data-close></div>
+      <div class="sheet-head" data-close>
+        <div class="sheet-grab"></div>
+      </div>
       <h2 class="sheet-title" id="sheet-title"></h2>
       <div class="sheet-body"></div>
     </div>`;
   document.body.appendChild(root);
 
   root.addEventListener('click', (e) => {
-    if (e.target.hasAttribute('data-close')) close();
+    if (e.target.closest('[data-close]')) close();
+  });
+
+  // The sheet scrolls, so the drag only takes over at the top of its content —
+  // except from the handle, which always grabs it.
+  drag = draggable(root.querySelector('.sheet'), {
+    scroller: root.querySelector('.sheet'),
+    handle: '.sheet-head',
+    onClose: close,
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !root.hidden) close();
@@ -26,6 +39,7 @@ function build() {
 
 export function close() {
   if (!root || root.hidden) return;
+  drag?.reset();
   root.hidden = true;
   document.body.classList.remove('sheet-open');
   const fn = onClose;
@@ -58,6 +72,7 @@ export function pick({ title, options, current, onPick }) {
     onPick(options.find((o) => String(o.value) === raw).value);
   };
 
+  drag?.reset();
   root.hidden = false;
   document.body.classList.add('sheet-open');
   root.querySelector('.opt.on, .opt')?.focus();
@@ -73,6 +88,7 @@ export function panel({ title, html, onClick }) {
   body.innerHTML = html;
   body.onclick = onClick || null;
 
+  drag?.reset();
   root.hidden = false;
   document.body.classList.add('sheet-open');
 
