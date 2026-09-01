@@ -17,6 +17,8 @@ const DEFAULTS = {
   overrides: {},   // itemId -> { values, source, basis, at } you supplied yourself
   targets: {},      // macro -> { value, on }; empty falls back to DEFAULT_TARGETS
   lastBackup: null, // ISO date of the last export
+  meal: null,      // last meal shown; re-guessed from the clock once it goes stale
+  mealAt: 0,       // epoch ms the meal was last set
   sort: 'ratio',
   floor: 10,
   avoid: [],       // allergen names to exclude

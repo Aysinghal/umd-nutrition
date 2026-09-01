@@ -6,6 +6,7 @@ import * as plate from './plate.js';
 import * as backup from './backup.js';
 import * as store from './store.js';
 import { SORTS, ALLERGENS, get as getFilters, reset as resetFilters } from './filters.js';
+import { dataAgeDays } from './data.js';
 import { esc } from './util.js';
 
 let notify = null;
@@ -21,6 +22,15 @@ function ageLine() {
     ? 'never backed up'
     : days === 0 ? 'backed up today' : `last backed up ${days} day${days === 1 ? '' : 's'} ago`;
   return `<span class="${stale ? 'set-stale' : 'set-ok'}">${text}</span>`;
+}
+
+// The app runs off a copy on the phone, so "how old is that copy" is a real question
+// with a real answer, not a detail.
+function offlineLine() {
+  const days = dataAgeDays();
+  if (days == null) return '<span class="set-stale">no menu data yet</span>';
+  if (days <= 0) return '<span class="set-ok">menu data is from today</span>';
+  return `<span class="set-stale">menu data is ${days} day${days === 1 ? '' : 's'} old</span>`;
 }
 
 function draw() {
@@ -79,6 +89,12 @@ function draw() {
       </button>
       <input type="file" id="set-file" accept="application/json,.json" hidden>
 
+      <p class="f-head">Offline</p>
+      <p class="set-age">${offlineLine()}</p>
+      <button class="fill-row set-wide" data-refresh>
+        <span>Reload &amp; update<span class="d-was">throws away the downloaded copy and fetches it again</span></span>
+      </button>
+
       <div class="panel-actions"><button class="danger" data-reset>Reset filters</button></div>`,
     onClick: handle,
   });
@@ -100,6 +116,8 @@ function handle(e) {
   else if (toggle) {
     const m = toggle.dataset.toggle;
     plate.setTarget(m, { on: !plate.targets()[m].on });
+  } else if (e.target.closest('[data-refresh]')) {
+    return confirmRefresh();
   } else if (e.target.closest('[data-floor]')) {
     return openKeypad({
       title: 'Minimum protein',
@@ -131,6 +149,36 @@ function handle(e) {
 
   notify?.();
   draw();
+}
+
+// The escape hatch for a wedged worker. Done from the page rather than by asking the
+// worker to clear itself, because the case this exists for is the worker not answering.
+function confirmRefresh() {
+  panel({
+    title: 'Reload & update',
+    html: `
+      <p class="pad-sub">Deletes the copy of the app and menus stored on this phone and
+        downloads them again. Needs a connection.</p>
+      <p class="pad-sub">Your plate, targets, overrides and settings are stored separately
+        and are not touched.</p>
+      <div class="fill-actions">
+        <button data-cancel>Cancel</button>
+        <button class="go" data-confirm>Reload</button>
+      </div>`,
+    onClick: async (e) => {
+      if (e.target.closest('[data-cancel]')) return draw();
+      if (!e.target.closest('[data-confirm]')) return;
+      try {
+        const regs = await navigator.serviceWorker?.getRegistrations?.() ?? [];
+        await Promise.all(regs.map((r) => r.unregister()));
+        const names = await self.caches?.keys?.() ?? [];
+        await Promise.all(names.map((n) => self.caches.delete(n)));
+      } catch {
+        // Nothing cached is exactly the state we were trying to reach.
+      }
+      location.reload();
+    },
+  });
 }
 
 // Never overwrite silently — say what is in the file first.

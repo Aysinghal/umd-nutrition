@@ -8,8 +8,20 @@ async function json(path) {
   return res.json();
 }
 
-export const loadIndex = () => json('index.json');
+// The index is loaded once at boot. Remembering it here means a sheet can ask how
+// old the data is without the answer being threaded through the whole UI.
+let lastIndex = null;
+
+export const loadIndex = async () => { lastIndex = await json('index.json'); return lastIndex; };
 export const loadItems = () => json('items.json');
+
+// Whole days between the export and today. Offline, the app keeps serving the last
+// export it managed to download, so this is the only honest freshness signal there is.
+export function dataAgeDays() {
+  if (!lastIndex) return null;
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.round((midnight(new Date()) - midnight(new Date(lastIndex.generated_at))) / 86400000);
+}
 
 // Switching back and forth between halls shouldn't refetch. Menu days are ~8 KB and
 // there are at most 21 of them.

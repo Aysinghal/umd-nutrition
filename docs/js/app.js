@@ -1,4 +1,4 @@
-import { loadIndex, loadItems, loadMenu, mealsFor, hasDay } from './data.js';
+import { loadIndex, loadItems, loadMenu, mealsFor, hasDay, dataAgeDays } from './data.js';
 import { pick, panel, close as closeSheet, isOpen } from './sheet.js';
 import * as store from './store.js';
 import * as plate from './plate.js';
@@ -46,6 +46,28 @@ const MEAL_ENDS = { Breakfast: 10.5, Brunch: 15, Lunch: 16, Dinner: 24 };
 function guessMeal(meals, now = new Date()) {
   const hour = now.getHours() + now.getMinutes() / 60;
   return meals.find((m) => hour < (MEAL_ENDS[m] ?? 24)) ?? meals[meals.length - 1];
+}
+
+const MEAL_MEMORY = 60 * 60 * 1000;
+
+// iOS drops background tabs and reloads them. Re-guessing from the clock on every
+// reload means checking dinner at 5pm, glancing away, and coming back to lunch — or
+// the reverse. So the last meal sticks for an hour before the clock takes over again.
+// The stamp records when the meal was decided, not when it was last shown. Otherwise
+// opening the app every half hour would keep renewing the hour and the clock would
+// never get a turn.
+function pickMeal(meals) {
+  const last = store.get('meal');
+  const fresh = Date.now() - (store.get('mealAt') || 0) < MEAL_MEMORY;
+  if (fresh && meals.includes(last)) return last;
+  const guess = guessMeal(meals);
+  rememberMeal(guess);
+  return guess;
+}
+
+function rememberMeal(meal) {
+  store.set('meal', meal);
+  store.set('mealAt', Date.now());
 }
 
 // --- building the list -------------------------------------------------------
@@ -209,7 +231,10 @@ function renderHero() {
     ? `<button class="hero-nudge" id="hero-nudge">${
         age.days == null ? 'never backed up' : `last backed up ${age.days} days ago`}</button>`
     : '';
-  el('hero-meta').innerHTML = `menu updated ${esc(state.builtOn ?? '')}${nudge}`;
+  const dataAge = dataAgeDays();
+  const when = dataAge === 0 ? 'menu updated today' : `data from ${esc(state.builtOn ?? '')}`;
+  el('hero-meta').innerHTML = `${when}${nudge}`;
+  el('hero-meta').classList.toggle('hero-stale', dataAge != null && dataAge >= 1);
   const n = el('hero-nudge');
   if (n) n.onclick = () => openSettings(() => { rebuild(); render(); });
 }
@@ -605,7 +630,7 @@ async function refreshDay() {
   render();
 
   const meals = mealsFor(state.index, state.hall, state.date);
-  if (!meals.includes(state.meal)) state.meal = guessMeal(meals);
+  if (!meals.includes(state.meal)) state.meal = pickMeal(meals);
 
   state.menu = await loadMenu(state.hall, state.date);
   state.loading = false;
@@ -615,7 +640,8 @@ async function refreshDay() {
 
 function setMeal(meal) {
   if (meal === state.meal) return;
-  state.meal = meal; // deliberately not stored: the clock guesses this each time
+  state.meal = meal;
+  rememberMeal(meal);
   state.labelName = null;
   state.tempTargets = null;
   rebuild();
@@ -688,10 +714,74 @@ function wireBar() {
   });
 }
 
+// --- offline ------------------------------------------------------------------
+
+// Anything longer than this away from the app and it's worth a fresh look on the way
+// back. Shorter than this is switching to the camera and switching straight back.
+const RETURN_AFTER = 5 * 60 * 1000;
+
+// Nothing re-checks the clock while the page is alive: the date and the meal are both
+// worked out at boot and never move again, and there is no timer. A Home Screen app can
+// sit in memory for days, and there is no pull-to-refresh here either — the body is
+// pinned so sheets don't bounce the page. So without this you can open at 6pm and still
+// be reading the lunch menu.
+//
+// Two hours is the gap between meals. Shorter than that is putting your phone in your
+// pocket partway through one.
+//
+// The date is checked as well as the age, for the narrow case of loading late at night
+// and coming back after midnight: a different day, but under two hours.
+//
+// Safe to reload with no signal, which it would not have been before the cache existed.
+const STALE_AFTER = 2 * 60 * 60 * 1000;
+const bootDay = todayISO();
+const bootAt = Date.now();
+
+function reloadIfStale() {
+  if (todayISO() !== bootDay || Date.now() - bootAt > STALE_AFTER) location.reload();
+}
+
+function initOffline() {
+  // The staleness guard has nothing to do with caching and must not be skipped with it.
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    // Checked on every return, however brief the trip away was: what matters is how
+    // old the page is, not how long you were gone.
+    reloadIfStale();
+    if (Date.now() - hiddenAt > RETURN_AFTER) syncData();
+  });
+
+  // iOS can restore a page from the back/forward cache without firing visibilitychange.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) reloadIfStale(); });
+
+  if (!navigator.serviceWorker) return;
+
+  // updateViaCache 'none' is load-bearing. Pages serves everything with a ten minute
+  // cache; without this the browser can hand back the old worker for ten more minutes
+  // after a deploy, and a stuck worker is the one failure with no obvious way out.
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+  syncData();
+}
+
+// Pulls a fresh export onto the phone for next time. Deliberately does not re-render:
+// nothing should move while you're mid-decision in front of the counter.
+function syncData() {
+  navigator.serviceWorker?.ready
+    .then((reg) => reg.active?.postMessage({ type: 'sync' }))
+    .catch(() => {});
+}
+
 // --- boot --------------------------------------------------------------------
 
+// A declaration, not a const arrow: the day-rollover guard higher up calls this at
+// module load, before this line would have finished evaluating.
+function todayISO() {
+  return new Date().toLocaleDateString('en-CA'); // local date, not UTC
+}
+
 function today(index) {
-  const iso = new Date().toLocaleDateString('en-CA'); // local date, not UTC
+  const iso = todayISO();
   return hasDay(index, state.hall, iso) ? iso : index.dates[0];
 }
 
@@ -711,7 +801,7 @@ async function main() {
       state.hall = index.halls.find((h) => hasDay(index, h.id, state.date))?.id ?? state.hall;
     }
 
-    state.meal = guessMeal(mealsFor(index, state.hall, state.date));
+    state.meal = pickMeal(mealsFor(index, state.hall, state.date));
 
     const built = new Date(index.generated_at);
     state.builtOn = built.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -725,6 +815,7 @@ async function main() {
     wireBar();
     wireList();
     store.requestPersistence();
+    initOffline();
     window.__stage = 'done';
   } catch (err) {
     el('list').innerHTML = `<div class="msg">Couldn't load: ${esc(err.message)}</div>`;

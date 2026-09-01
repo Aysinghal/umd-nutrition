@@ -1094,3 +1094,9 @@ button.trow {
 }
 
 button.trow:active { background: var(--line); border-radius: 8px; }
+
+/* --- offline -------------------------------------------------------------- */
+
+/* The app runs off a copy on the phone, so the hero has to be able to say the copy
+   is old. Same line as "menu updated today", just coloured when it matters. */
+.hero-meta.hero-stale { color: var(--warn); }
