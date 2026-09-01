@@ -107,6 +107,7 @@ body {
   touch-action: manipulation; /* no 300ms tap delay, no double-tap zoom */
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none; /* no copy/look-up bubble on the level chip's long-press */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -233,6 +234,8 @@ body.sheet-open {
   min-height: 38px;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .sheet-close:active { background: var(--line); }
@@ -261,6 +264,10 @@ body.sheet-open {
   min-height: 48px;
   cursor: pointer;
   touch-action: manipulation;
+  /* a long-press opens the sheet under the finger that is still down; without
+     this iOS treats that finger as selecting whatever button landed there */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .opt:active { background: var(--line); }
