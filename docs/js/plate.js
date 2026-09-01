@@ -1,6 +1,7 @@
 // What's on the plate right now. Knows nothing about the DOM.
 
 import * as store from './store.js';
+import { todayISO } from './util.js';
 
 export const MACROS = ['cal', 'protein', 'carbs', 'fat', 'fiber'];
 
@@ -58,6 +59,8 @@ export const qtyOf = (id) => entries.find((e) => e.id === id)?.qty ?? 0;
 const round2 = (n) => Math.round(n * 100) / 100;
 
 export function add(id, step = 1) {
+  // The day a plate was started, so opening tomorrow can offer to file it away.
+  if (!entries.length) store.set('plateDay', todayISO());
   const found = entries.find((e) => e.id === id);
   if (found) found.qty = round2(found.qty + step);
   else entries.push({ id, qty: step });
@@ -82,6 +85,8 @@ export function remove(id) {
 export function clear() {
   entries = [];
   save();
+  store.set('plateDay', null);
+  store.set('plateKeep', false);
 }
 
 // Sums every macro, and separately records which items had nothing to contribute.

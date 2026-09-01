@@ -7,13 +7,14 @@ import { buildIndex, suggestFor, FIELDS as SUGGEST_FIELDS } from './suggest.js';
 import { labelHtml } from './label.js';
 import { openDetail } from './detail.js';
 import * as overrides from './overrides.js';
-import { esc, num, fmtQty } from './util.js';
+import { esc, num, fmtQty, todayISO } from './util.js';
 import { get as getFilters } from './filters.js';
 import { draggable } from './drag.js';
 import { openSettings } from './settings.js';
 import { backupAge } from './backup.js';
 import * as marks from './marks.js';
 import { narrow, wide, NEXT_SCOPE } from './search.js';
+import * as history from './history.js';
 
 const floor = () => getFilters().floor;
 
@@ -145,7 +146,7 @@ function allowed(id, item) {
 
 function rebuild() {
   const f = getFilters();
-  const rows = collect(state.menu, state.meal, state.items)
+  const rows = (state.menu ? collect(state.menu, state.meal, state.items) : [])
     .filter((r) => f.showFlagged || !r.item.suspect)
     .filter((r) => allowedAt(r.item, state.level))
     .filter((r) => !f.avoid.some((a) => (r.item.allergens || []).includes(a)));
@@ -161,6 +162,16 @@ const el = (id) => document.getElementById(id);
 
 // "Yahentamitsi Dining Hall" is too long for a chip; the suffix carries no information.
 const shortHall = (name) => name.replace(/ Dining Hall$/, '');
+
+function cardHtml(p) {
+  const cal = Math.round(p.sums?.cal ?? 0);
+  const atLeast = (p.unknown?.cal ?? 0) > 0 ? '+' : '';
+  return `<button class="pcard" data-plate="${esc(p.id)}">
+    <span class="pc-name">${esc(p.name)}</span>
+    <span class="pc-sub">${esc(p.meal ?? '')} · ${p.items.length} item${
+      p.items.length === 1 ? '' : 's'} · ${cal}${atLeast} cal</span>
+  </button>`;
+}
 
 function rowHtml(r) {
   const { item, stations, ratio } = r;
@@ -236,10 +247,22 @@ function renderList() {
 
   // The floor is a ranking device, not a filter — everything is still on screen, just
   // in order. A divider marks where the contenders stop.
+  const parts0 = [];
+  const saved = history.forDate(state.date);
+  if (saved.length) {
+    parts0.push('<div class="divider">Saved plates</div>');
+    parts0.push(...saved.map(cardHtml));
+  }
+  if (!state.menu) {
+    el('list').innerHTML = parts0.join('')
+      + '<div class="msg">No menu saved for this day.</div>';
+    return;
+  }
+
   const favs = state.rows.filter((r) => marks.isFav(r.id));
   const rest = state.rows.filter((r) => !marks.isFav(r.id));
 
-  const parts = [];
+  const parts = [...parts0];
   // Starred items you can actually eat tonight, in context with the rest of the menu
   // rather than on a screen of their own. Ones that aren't being served just don't show.
   if (favs.length) {
@@ -324,9 +347,39 @@ function renderHero() {
   const dataAge = dataAgeDays();
   const when = dataAge === 0 ? 'menu updated today' : `data from ${esc(state.builtOn ?? '')}`;
   el('hero-meta').innerHTML = `${when}${nudge}`;
+  renderDates();
   el('hero-meta').classList.toggle('hero-stale', dataAge != null && dataAge >= 1);
   const n = el('hero-nudge');
   if (n) n.onclick = () => openSettings(() => refresh());
+}
+
+// Every date the app can show: menus we hold, plus any day a saved plate remembers,
+// which can outlive its menu.
+function stripDates() {
+  return [...new Set([...state.index.dates, ...history.datesWithPlates()])].sort();
+}
+
+// A row rather than a month grid. Almost every look back is yesterday, and a dot under
+// the days with plates buys the one thing a calendar was for.
+function renderDates() {
+  const marked = history.datesWithPlates();
+  const today = todayISO();
+  el('dates').innerHTML = stripDates().map((d) => {
+    const day = new Date(`${d}T12:00:00`);
+    const cls = ['dchip'];
+    if (d === state.date) cls.push('on');
+    if (d === today) cls.push('today');
+    return `<button class="${cls.join(' ')}" data-date="${d}">
+      <span class="dw">${day.toLocaleDateString(undefined, { weekday: 'short' })}</span>
+      <span class="dn">${day.getDate()}</span>
+      <span class="ddot${marked.has(d) ? ' has' : ''}"></span>
+    </button>`;
+  }).join('');
+  // Scroll the strip itself. scrollIntoView is entitled to scroll every scrollable
+  // ancestor, and the document scrolls here, so it could shift the whole page.
+  const strip = el('dates');
+  const on = strip.querySelector('.dchip.on');
+  if (on) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
 }
 
 function render() {
@@ -380,6 +433,8 @@ function wireList() {
   list.addEventListener('click', (e) => {
     if (held) { held = false; return; } // the long-press already opened the sheet
     if (e.target.closest('[data-hidden]')) return openHiddenSheet();
+    const card = e.target.closest('[data-plate]');
+    if (card) return openPlateCard(card.dataset.plate);
 
     const widen = e.target.closest('[data-widen]');
     if (widen) {
@@ -415,6 +470,11 @@ function wireList() {
   });
 
   el('plate').addEventListener('click', openPlatePanel);
+
+  el('dates').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-date]');
+    if (b) setDate(b.dataset.date);
+  });
 }
 
 // --- search -------------------------------------------------------------------
@@ -843,12 +903,148 @@ function openPlatePanel() {
 
 // --- changing things ---------------------------------------------------------
 
+// --- saved plates -------------------------------------------------------------
+
+// Freezes the numbers as well as the ids. See the note at the top of history.js.
+function snapshotPlate() {
+  const { sums, unknown } = plate.totals(state.items, plate.LABEL_FIELDS);
+  return {
+    name: plateName(),
+    hall: state.hall,
+    date: store.get('plateDay') ?? state.date,
+    meal: state.meal,
+    sums,
+    unknown: Object.fromEntries(Object.entries(unknown).map(([k, v]) => [k, v.length])),
+    items: plate.list().map(({ id, qty }) => ({ id, qty, name: state.items[id]?.name ?? id })),
+  };
+}
+
+// Offered, never silent: the plate is the one thing here you built by hand.
+function offerSave(after) {
+  if (plate.isEmpty() || store.get('plateKeep')) return after();
+  panel({
+    title: 'Save this plate?',
+    html: `
+      <p class="pad-sub">${plate.servings()} serving${plate.servings() === 1 ? '' : 's'} on the
+        plate from ${esc(plateName())}. Saved plates keep their own numbers for 31 days.</p>
+      <div class="fill-actions">
+        <button class="go" data-save>Save &amp; start new</button>
+        <button data-keep>Keep it</button>
+      </div>`,
+    onClick: (e) => {
+      if (e.target.closest('[data-save]')) {
+        history.save(snapshotPlate());
+        plate.clear();
+        store.set('plateDay', null);
+        store.set('plateKeep', false);
+      } else if (e.target.closest('[data-keep]')) {
+        store.set('plateKeep', true);
+      } else return;
+      closeSheet();
+      after();
+    },
+  });
+}
+
+// Built from the frozen sums, not from items.json, which is the whole point of saving
+// them. This reads the same in a month as it does tonight.
+function showSavedLabel(p) {
+  closeSheet();
+  const missing = Object.values(p.unknown ?? {}).some((n) => n > 0);
+  const view = el('labelview');
+  view.innerHTML = `
+    <div class="lv-grab"><span></span></div>
+    ${missing ? '<p class="lv-warn">Some values were unknown when this was saved.</p>' : ''}
+    ${labelHtml({ name: p.name, servingSize: '1 plate', sums: p.sums })}
+    <p class="lv-note">Turn your screen brightness up before scanning.</p>
+    <div class="lv-bar">
+      <span class="lv-saved">saved ${esc(new Date(p.at).toLocaleDateString(undefined,
+        { month: 'short', day: 'numeric' }))}</span>
+      <button data-close-label>Done</button>
+    </div>`;
+  view.hidden = false;
+  view.querySelector('[data-close-label]').onclick = () => { view.hidden = true; };
+  wireLabelDrag();
+}
+
+// Reopening works off ids, so it picks up today's numbers and any override you have
+// made since. The frozen copy stays untouched on the saved plate.
+function reopenPlate(p) {
+  offerSave(() => {
+    plate.clear();
+    let gone = 0;
+    for (const { id, qty } of p.items) {
+      if (state.items[id]) plate.add(id, qty);
+      else gone++;
+    }
+    store.set('plateDay', state.date);
+    store.set('plateKeep', false);
+    closeSheet();
+    refresh();
+    if (gone) toast(`${gone} item${gone === 1 ? '' : 's'} no longer on any menu`);
+  });
+}
+
+function renamePlate(p) {
+  panel({
+    title: 'Rename plate',
+    html: `
+      <input class="q rename" id="pname" value="${esc(p.name)}" aria-label="Plate name">
+      <div class="fill-actions">
+        <button data-back>Cancel</button>
+        <button class="go" data-ok>Save</button>
+      </div>`,
+    onClick: (e) => {
+      if (e.target.closest('[data-back]')) return openPlateCard(p.id);
+      if (!e.target.closest('[data-ok]')) return;
+      history.rename(p.id, el('pname').value.trim() || p.name);
+      closeSheet();
+      refresh();
+    },
+  });
+}
+
+function openPlateCard(id) {
+  const p = history.get(id);
+  if (!p) return;
+  const when = new Date(`${p.date}T12:00:00`)
+    .toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  panel({
+    title: p.name,
+    html: `
+      <p class="pad-sub">${esc(when)} · ${esc(p.meal ?? '')} · ${p.items.length} item${
+        p.items.length === 1 ? '' : 's'}</p>
+      <ul class="set-list">${p.items.map((i) =>
+        `<li>${esc(i.name)}${i.qty === 1 ? '' : ` × ${fmtQty(i.qty)}`}</li>`).join('')}</ul>
+      <div class="fill-actions">
+        <button class="go" data-label>Label</button>
+        <button data-reopen>Reopen</button>
+      </div>
+      <div class="fill-actions">
+        <button data-rename>Rename</button>
+        <button class="danger" data-del>Delete</button>
+      </div>`,
+    onClick: (e) => {
+      if (e.target.closest('[data-label]')) return showSavedLabel(p);
+      if (e.target.closest('[data-reopen]')) return reopenPlate(p);
+      if (e.target.closest('[data-rename]')) return renamePlate(p);
+      if (e.target.closest('[data-del]')) {
+        history.remove(p.id);
+        closeSheet();
+        refresh();
+      }
+    },
+  });
+}
+
 async function setHall(hall) {
   if (hall === state.hall) return;
-  state.hall = hall;
-  state.labelName = null;
-  store.set('hall', hall);
-  await refreshDay();
+  offerSave(async () => {
+    state.hall = hall;
+    state.labelName = null;
+    store.set('hall', hall);
+    await refreshDay();
+  });
 }
 
 // Halls don't all serve the same meals on a given day, so a meal can vanish under us.
@@ -859,20 +1055,32 @@ async function refreshDay() {
   const meals = mealsFor(state.index, state.hall, state.date);
   if (!meals.includes(state.meal)) state.meal = pickMeal(meals);
 
-  state.menu = await loadMenu(state.hall, state.date);
+  state.menu = hasDay(state.index, state.hall, state.date)
+    ? await loadMenu(state.hall, state.date)
+    : null;
   state.loading = false;
   rebuild();
   render();
 }
 
+async function setDate(date) {
+  if (date === state.date) return;
+  offerSave(async () => {
+    state.date = date;
+    state.labelName = null;
+    await refreshDay();
+  });
+}
+
 function setMeal(meal) {
   if (meal === state.meal) return;
-  state.meal = meal;
-  rememberMeal(meal);
-  state.labelName = null;
-  state.tempTargets = null;
-  rebuild();
-  render();
+  offerSave(() => {
+    state.meal = meal;
+    rememberMeal(meal);
+    state.labelName = null;
+    state.tempTargets = null;
+    refresh();
+  });
 }
 
 function setLevel(level) {
@@ -1009,12 +1217,6 @@ function syncData() {
 
 // --- boot --------------------------------------------------------------------
 
-// A declaration, not a const arrow: the day-rollover guard higher up calls this at
-// module load, before this line would have finished evaluating.
-function todayISO() {
-  return new Date().toLocaleDateString('en-CA'); // local date, not UTC
-}
-
 function today(index) {
   const iso = todayISO();
   return hasDay(index, state.hall, iso) ? iso : index.dates[0];
@@ -1051,6 +1253,14 @@ async function main() {
     wireList();
     store.requestPersistence();
     initOffline();
+
+    // Left on the counter overnight. Offered once, on the way in, rather than silently
+    // filed away or silently carried forward.
+    const day = store.get('plateDay');
+    if (!plate.isEmpty() && day && day !== todayISO()) {
+      store.set('plateKeep', false);
+      offerSave(() => refresh());
+    }
     window.__stage = 'done';
   } catch (err) {
     el('list').innerHTML = `<div class="msg">Couldn't load: ${esc(err.message)}</div>`;

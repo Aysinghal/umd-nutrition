@@ -24,6 +24,9 @@ const DEFAULTS = {
   avoid: [],       // allergen names to exclude
   favorites: [],   // item ids pinned above the ranked list
   hidden: [],      // item ids kept out of the list entirely
+  plates: [],      // saved plates, each frozen with its own numbers
+  plateDay: null,  // the date the plate on the counter was started
+  plateKeep: false, // you already said to keep this plate across a switch
   showFlagged: false,
 };
 

@@ -7,7 +7,7 @@
 //
 // Bump VERSION whenever anything in SHELL_FILES changes.
 
-const VERSION = 10;
+const VERSION = 11;
 const SHELL = `umd-shell-v${VERSION}`;
 const DATA = 'umd-data';
 
@@ -25,6 +25,7 @@ const SHELL_FILES = [
   'js/detail.js',
   'js/drag.js',
   'js/filters.js',
+  'js/history.js',
   'js/keypad.js',
   'js/label.js',
   'js/marks.js',

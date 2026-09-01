@@ -1199,3 +1199,67 @@ button.trow:active { background: var(--line); border-radius: 8px; }
    rule as the scroll spacer above the first row. */
 .msg.low { padding-top: 42vh; }
 .msg.low .widen { display: block; width: 100%; margin-top: 14px; }
+
+/* --- date strip and saved plates ------------------------------------------ */
+
+/* margin-top:auto drops it into the hero's empty lower half, so it costs the list no
+   height and still sits within reach above the first row. */
+#dates {
+  margin: auto -18px 0;
+  padding: 14px 18px 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+#dates::-webkit-scrollbar { display: none; }
+
+.dchip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 46px;
+  padding: 6px 0 5px;
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--dim);
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.dchip .dw { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.dchip .dn { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dchip.today .dn { color: var(--accent); }
+.dchip.on { background: var(--card); border-color: var(--line); color: var(--text); }
+
+/* A dot instead of a month grid: the one thing a calendar was for. */
+.ddot { width: 4px; height: 4px; border-radius: 50%; background: none; }
+.ddot.has { background: var(--accent); }
+
+.pcard {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 8px;
+  padding: 12px 14px;
+  appearance: none;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.pc-name { display: block; font-weight: 600; }
+.pc-sub { display: block; margin-top: 2px; color: var(--dim); font-size: 13px; }
+
+.lv-saved { flex: 1; color: #666; font-size: 12px; }
+.rename { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; width: 100%; margin-bottom: 10px; }
