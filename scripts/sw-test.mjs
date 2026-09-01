@@ -31,6 +31,12 @@ serve('data/index.json');
 serve('data/items.json');
 for (const f of readdirSync(join(DOCS, 'data/menu'))) serve(`data/menu/${f}`);
 
+// The scrape adds a day every run, so every count below is derived from the export
+// rather than written down. A test that breaks each morning is worse than no test.
+const MENUS = JSON.parse(files.get(`${BASE}data/index.json`)).days.filter(
+  (d) => d.status === 'ok').length;
+const DROP_DATE = JSON.parse(files.get(`${BASE}data/index.json`)).dates[0];
+
 let online = true;
 let log = [];
 const urlOf = (i) => (typeof i === 'string' ? i : i.url);
@@ -151,8 +157,9 @@ console.log('\nfirst sync');
 ok('fetched index.json', log.includes('data/index.json'));
 ok('fetched items.json', log.includes('data/items.json'));
 const menuCount = log.filter((u) => u.startsWith('data/menu/')).length;
-ok('fetched all 21 menu days', menuCount === 21, `got ${menuCount}`);
-ok('data cache holds index + items + 21 menus + stamp', dataKeys().length === 24, `got ${dataKeys().length}`);
+ok(`fetched all ${MENUS} menu days`, menuCount === MENUS, `got ${menuCount}`);
+ok(`data cache holds index + items + ${MENUS} menus + stamp`,
+  dataKeys().length === MENUS + 3, `got ${dataKeys().length}`);
 
 console.log('\nsecond sync, nothing changed');
 log = [];
@@ -167,17 +174,18 @@ files.set(`${BASE}data/index.json`, JSON.stringify(idx));
 log = [];
 await fire('message', { data: { type: 'sync' } });
 ok('re-downloads items.json', log.includes('data/items.json'));
-ok('re-downloads all 21 menus', log.filter((u) => u.startsWith('data/menu/')).length === 21);
+ok(`re-downloads all ${MENUS} menus`, log.filter((u) => u.startsWith('data/menu/')).length === MENUS);
 
 console.log('\na day falls off the back of the window');
-const dropped = idx.days.filter((d) => d.date === '2026-08-31');
-idx.days = idx.days.filter((d) => d.date !== '2026-08-31');
+const dropped = idx.days.filter((d) => d.date === DROP_DATE);
+idx.days = idx.days.filter((d) => d.date !== DROP_DATE);
 idx.generated_at = '2026-09-02T09:00:00';
 files.set(`${BASE}data/index.json`, JSON.stringify(idx));
 await fire('message', { data: { type: 'sync' } });
 const gone = dropped.every((d) => !dataKeys().includes(`data/menu/${d.hall}-${d.date}.json`));
-ok(`pruned the ${dropped.length} menu files for 2026-08-31`, gone);
-ok('kept the other 18', dataKeys().filter((k) => k.startsWith('data/menu/')).length === 18,
+ok(`pruned the ${dropped.length} menu files for ${DROP_DATE}`, gone);
+ok(`kept the other ${MENUS - dropped.length}`,
+  dataKeys().filter((k) => k.startsWith('data/menu/')).length === MENUS - dropped.length,
   `got ${dataKeys().filter((k) => k.startsWith('data/menu/')).length}`);
 
 console.log('\noffline');
@@ -185,9 +193,11 @@ online = false;
 let threw = false;
 try { await fire('message', { data: { type: 'sync' } }); } catch { threw = true; }
 ok('a failed sync is swallowed, not thrown at the page', !threw);
-ok('cached data survives a failed sync', dataKeys().length === 21, `got ${dataKeys().length}`);
-const menu = await req('data/menu/19-2026-09-01.json');
-ok('menu still served with no network', menu.status === 200);
+ok('cached data survives a failed sync',
+  dataKeys().length === MENUS - dropped.length + 3, `got ${dataKeys().length}`);
+const anyMenu = dataKeys().find((k) => k.startsWith('data/menu/'));
+const menu = await req(anyMenu);
+ok(`menu still served with no network (${anyMenu.replace('data/menu/', '')})`, menu.status === 200);
 ok('menu body is real json', Array.isArray((JSON.parse(await menu.text())).meals));
 const items = await req('data/items.json');
 ok('items.json still served with no network', items.status === 200);
