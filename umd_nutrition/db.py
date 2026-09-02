@@ -97,6 +97,17 @@ CREATE TABLE IF NOT EXISTS menu_days (
   PRIMARY KEY (date, location_num)
 );
 
+-- Opening hours, from the Google Sheet dining.umd.edu reads (see hours.py).
+-- Only the dates being scraped are kept, and they are pruned with menu days:
+-- the sheet holds a year, and carrying it all for a 31-day window is pointless.
+CREATE TABLE IF NOT EXISTS hall_hours (
+  date         TEXT NOT NULL,
+  location_num INTEGER NOT NULL,
+  meal         TEXT NOT NULL,
+  hours        TEXT NOT NULL,   -- "7am-10:30am", or "Closed"
+  PRIMARY KEY (date, location_num, meal)
+);
+
 CREATE TABLE IF NOT EXISTS scrape_runs (
   id            INTEGER PRIMARY KEY,
   started_at    TEXT,
@@ -288,12 +299,36 @@ def finish_scrape_run(
     conn.commit()
 
 
+def replace_hall_hours(
+    conn: sqlite3.Connection, found: dict[tuple[str, int, str], str]
+) -> int:
+    """Write the scraped hours. Same day/hall/meal overwrites, so re-runs are free."""
+    conn.executemany(
+        "INSERT INTO hall_hours(date, location_num, meal, hours) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(date, location_num, meal) DO UPDATE SET hours = excluded.hours",
+        [(date, loc, meal, value) for (date, loc, meal), value in found.items()],
+    )
+    conn.commit()
+    return len(found)
+
+
+def hall_hours_map(conn: sqlite3.Connection) -> dict[tuple[str, int], dict[str, str]]:
+    """{(date, location_num): {meal: hours}} for everything stored."""
+    out: dict[tuple[str, int], dict[str, str]] = {}
+    for date, loc, meal, value in conn.execute(
+        "SELECT date, location_num, meal, hours FROM hall_hours"
+    ):
+        out.setdefault((date, loc), {})[meal] = value
+    return out
+
+
 def prune_menu_entries(conn: sqlite3.Connection, keep_days: int, today: Date) -> int:
     """Drop menu history older than `keep_days`. Items are never pruned."""
     cutoff = (today - timedelta(days=keep_days)).isoformat()
     before = conn.total_changes
     conn.execute("DELETE FROM menu_entries WHERE date < ?", (cutoff,))
     conn.execute("DELETE FROM menu_days WHERE date < ?", (cutoff,))
+    conn.execute("DELETE FROM hall_hours WHERE date < ?", (cutoff,))
     conn.commit()
     return conn.total_changes - before
 

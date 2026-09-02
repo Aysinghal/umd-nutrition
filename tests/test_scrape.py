@@ -28,9 +28,18 @@ def load(name: str) -> str:
 class StubClient:
     """Stands in for Client: same surface, fixtures instead of sockets."""
 
-    def __init__(self, *, menu: str = "menu_tiny.html", broken: set[str] | None = None):
+    def __init__(
+        self,
+        *,
+        menu: str = "menu_tiny.html",
+        broken: set[str] | None = None,
+        hours: str | None = "hours_sheet.txt",
+    ):
         self.menu_fixture = menu
         self.broken = broken or set()
+        # The hours sheet is a Google Sheet, not a UMD page. None makes the fetch
+        # fail, which is how the "third party had a bad morning" path is tested.
+        self.hours_fixture = hours
         self.pages_fetched = 0
         self.cache_hits = 0
         self.requested: list[str] = []
@@ -40,6 +49,13 @@ class StubClient:
         self.requested.append(url)
         if url in self.missing:
             raise FetchError(f"{url}: HTTP 404")
+
+        if "docs.google.com" in url:
+            if self.hours_fixture is None:
+                raise FetchError(f"{url}: HTTP 503")
+            self.pages_fetched += 1
+            return FetchResult(url=url, html=load(self.hours_fixture), from_cache=False)
+
         self.pages_fetched += 1
 
         if "label.aspx" in url:
@@ -139,8 +155,10 @@ def test_labels_are_fetched_once_ever(conn) -> None:
     assert second.label_requests == []
     assert summary.new_items == 0
     assert summary.ok
-    # The menu page is still re-fetched, because menus change.
-    assert len(second.requested) == 1
+    # The menu page is still re-fetched, because menus change. So is the hours
+    # sheet, which is one request whatever else happens.
+    assert menu_url(16, Date(2026, 8, 31)) in second.requested
+    assert len(second.requested) == 2
 
 
 def test_menu_rows_are_not_duplicated_on_rerun(conn) -> None:

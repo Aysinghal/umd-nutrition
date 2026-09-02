@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from . import db
 from .client import Client, FetchError
 from .diet import CLASSIFIER_VERSION, check_against_tags, classify
+from .hours import HOURS_URL, HoursParseError, parse_hours
 from .label import LabelParseError, parse_label
 from .menu import MenuParseError, parse_location_options, parse_menu
 
@@ -51,6 +52,7 @@ class ScrapeSummary:
     unclassified: int = 0
     pages_fetched: int = 0
     cache_hits: int = 0
+    hours_cells: int = 0
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -62,6 +64,7 @@ class ScrapeSummary:
             f"menu pages:   {self.menu_pages} ({self.empty_days} with no menu)",
             f"menu rows:    +{self.menu_rows_added}",
             f"new items:    +{self.new_items} ({self.items_without_data} with no nutrition data)",
+            f"hours:        {self.hours_cells} hall-meal-days",
             f"fetched:      {self.pages_fetched} pages, {self.cache_hits} from cache",
             f"unclassified: {self.unclassified} (no diet level)",
             f"errors:       {len(self.errors)}",
@@ -159,6 +162,18 @@ def scrape(
                 "%s hall %s: %d items across %s",
                 iso, hall, len(page.entries), ", ".join(page.meals),
             )
+
+    # Hours come from a Google Sheet, not from UMD's menu site (see hours.py).
+    # It is a third party's spreadsheet, so a bad day for it must not cost us the
+    # scrape: on failure the previously stored hours are simply left in place.
+    try:
+        result = client.get(HOURS_URL, cache_ok=False)
+        found = parse_hours(result.html, dates=[day.isoformat() for day in dates])
+        summary.hours_cells = db.replace_hall_hours(conn, found)
+        log.info("hours: %d hall-meal-days", summary.hours_cells)
+    except (FetchError, HoursParseError) as exc:
+        summary.errors.append(f"hours: {exc}")
+        log.warning("hours unavailable, keeping what is stored: %s", exc)
 
     log.info("%d labels to fetch (%d already cached)", len(pending_labels), len(known))
 

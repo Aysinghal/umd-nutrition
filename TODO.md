@@ -65,9 +65,11 @@ for a shipped feature.
 
 ---
 
-## 2. Dining hall hours → the data  *(approved, in progress)*
+## 2. Dining hall hours → the data  *(built 2026-09-01 — lands with the next scrape)*
 
-Back end only. **Nothing visible changes.**
+Back end only. **Nothing visible changes.** The code is merged; the hours appear
+in the live `index.json` after the next Action run, since exports are the
+Action's job.
 
 Fetch the hours during the daily scrape and publish them in `index.json`:
 
@@ -90,6 +92,11 @@ site has zero time strings anywhere.
   yesterday's hours instead of none.
 - **Brunch is derived** (breakfast-start → lunch-end); the sheet has no Brunch row.
 - **`Closed` is stored as-is** so step 3 can use it.
+- Hours are published **only for meals a day actually serves**, so a weekend
+  Brunch hall ships Brunch + Dinner, never Breakfast + Lunch.
+- A day with no hours gets **no `hours` key at all** — the app must read a missing
+  key as "unknown", never as "closed".
+- Verified against the real sheet: costs **+1.5 KB raw, +84 bytes gzipped**.
 
 ---
 

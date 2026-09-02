@@ -22,6 +22,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .diet import CLASSIFIER_VERSION
+from .db import hall_hours_map as db_hours
+from .hours import brunch_from
 
 log = logging.getLogger(__name__)
 
@@ -43,12 +45,13 @@ class ExportSummary:
     entries: int = 0
     bytes_written: int = 0
     stale_removed: int = 0
+    hours: int = 0
 
     def report(self) -> str:
         stale = f", removed {self.stale_removed} stale" if self.stale_removed else ""
         return (
-            f"exported {self.items} items, {self.days} days, {self.entries} entries"
-            f"{stale} ({self.bytes_written / 1024:.0f} KB)"
+            f"exported {self.items} items, {self.days} days, {self.entries} entries, "
+            f"{self.hours} meal hours{stale} ({self.bytes_written / 1024:.0f} KB)"
         )
 
 
@@ -186,21 +189,38 @@ def export(conn: sqlite3.Connection, out_dir: Path | str) -> ExportSummary:
                 path.unlink()
                 summary.stale_removed += 1
 
+    hours = db_hours(conn)
+
+    def day_entry(day: sqlite3.Row) -> dict:
+        meals = day["meals_found"].split(",") if day["meals_found"] else []
+        entry = {
+            "date": day["date"],
+            "hall": day["location_num"],
+            "status": day["status"],
+            "meals": meals,
+            "items": day["item_count"],
+        }
+        stored = hours.get((day["date"], day["location_num"]), {})
+        # Only the meals this hall actually serves that day. The sheet always has
+        # Breakfast/Lunch/Dinner rows, but a weekend Brunch hall serves neither
+        # Breakfast nor Lunch, and publishing hours for meals with no menu behind
+        # them would put times on chips that do not exist.
+        for_day = {meal: stored[meal] for meal in meals if meal in stored}
+        if "Brunch" in meals and "Brunch" not in for_day:
+            derived = brunch_from(stored)
+            if derived:
+                for_day["Brunch"] = derived
+        if for_day:
+            entry["hours"] = for_day
+            summary.hours += len(for_day)
+        return entry
+
     index = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "classifier_version": CLASSIFIER_VERSION,
         "halls": [{"id": num, "name": name} for num, name in halls.items()],
         "dates": sorted({day["date"] for day in days}),
-        "days": [
-            {
-                "date": day["date"],
-                "hall": day["location_num"],
-                "status": day["status"],
-                "meals": day["meals_found"].split(",") if day["meals_found"] else [],
-                "items": day["item_count"],
-            }
-            for day in days
-        ],
+        "days": [day_entry(day) for day in days],
         "counts": {"items": summary.items, "entries": summary.entries},
     }
     summary.bytes_written += _write(out / "index.json", index)
