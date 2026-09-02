@@ -7,7 +7,7 @@
 //
 // Bump VERSION whenever anything in SHELL_FILES changes.
 
-const VERSION = 12;
+const VERSION = 13;
 const SHELL = `umd-shell-v${VERSION}`;
 const DATA = 'umd-data';
 

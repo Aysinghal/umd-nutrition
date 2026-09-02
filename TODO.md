@@ -100,16 +100,20 @@ site has zero time strings anywhere.
 
 ---
 
-## 3. Show the hours in the sheets
+## 3. Show the hours in the sheets  *(built 2026-09-01 — blank until the next scrape)*
 
 Front end. The pick sheet already renders a subtitle per option, so this is
 filling in a field that exists rather than new UI.
 
 - Meal sheet: each meal gets its window underneath.
 - Hall sheet: each hall gets today's hours, and can say when a hall is **closed**.
-- `o.note` currently goes into the sheet as **raw HTML, unescaped**. Fine for
-  strings we generate, but hours come from a spreadsheet other people edit —
-  escape it before it goes on screen.
+- `o.note` went into the sheet as **raw HTML, unescaped**. Now escaped in
+  `sheet.js`, which covers every caller rather than each call site.
+
+**Known gap, deliberate:** the hall sheet shows the hours for the meal you are
+currently on. On a weekend at noon that means South Campus and Yahentamitsi show
+*Brunch 10am – 4pm* while 251 North shows nothing, because it serves Lunch, not
+Brunch. Left as-is until it actually annoys you in a dining hall.
 
 ---
 

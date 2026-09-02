@@ -49,6 +49,20 @@ export function mealsFor(index, hall, date) {
   return day ? day.meals : [];
 }
 
+// When a hall serves a meal, as UMD publishes it: "7am-10:30am", or "Closed".
+//
+// A missing key means we don't know -- older exports have no hours at all, and the
+// sheet can simply not cover a day. That is never rendered as "closed": no note is
+// better than a wrong one when the answer decides whether you walk across campus.
+export function mealHours(index, hall, date, meal) {
+  const day = index.days.find((d) => d.hall === hall && d.date === date);
+  const raw = day && day.hours ? day.hours[meal] : null;
+  if (!raw) return null;
+  // UMD writes "4pm-9pm"; the spaced dash just reads better at a glance. Their
+  // times are left exactly as written -- "7am" is their wording, not "7:00am".
+  return raw === 'Closed' ? 'Closed' : raw.replace('-', ' – ');
+}
+
 export function hasDay(index, hall, date) {
   return index.days.some((d) => d.hall === hall && d.date === date && d.status === 'ok');
 }

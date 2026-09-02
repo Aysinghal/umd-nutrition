@@ -1,6 +1,7 @@
 // The slide-up panel. Built once, reused by every sheet in the app.
 
 import { draggable } from './drag.js';
+import { esc } from './util.js';
 
 let root = null;
 let onClose = null;
@@ -74,9 +75,11 @@ export function pick({ title, options, current, onPick }) {
   body.innerHTML = options
     .map((o) => {
       const on = o.value === current;
-      return `<button class="opt${on ? ' on' : ''}" data-value="${o.value}"${on ? ' aria-current="true"' : ''}>
-        <span class="opt-label">${o.label}</span>
-        ${o.note ? `<span class="opt-note">${o.note}</span>` : ''}
+      // Escaped because notes now carry hours, and those come out of a Google
+      // Sheet other people edit rather than a string this app wrote.
+      return `<button class="opt${on ? ' on' : ''}" data-value="${esc(o.value)}"${on ? ' aria-current="true"' : ''}>
+        <span class="opt-label">${esc(o.label)}</span>
+        ${o.note ? `<span class="opt-note">${esc(o.note)}</span>` : ''}
       </button>`;
     })
     .join('');
