@@ -1,8 +1,11 @@
 # Front end plan
 
-Answers to the questions in [HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md), settled. This is
-the spec to build from. Decisions in GOALS.md and the handoff's "don't reopen" list still
-hold and aren't repeated here.
+The spec the front end was built from. Decisions in GOALS.md still hold and aren't
+repeated here.
+
+**Stale after step 7** — steps 8-11 (offline, favourites/hiding, search, history and
+saved plates) are built but not described here. See [TODO.md](TODO.md) for what's open
+and [DATA-FLOW.md](DATA-FLOW.md) for how the data works.
 
 ## Shape of the app
 
