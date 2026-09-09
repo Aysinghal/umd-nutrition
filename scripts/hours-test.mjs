@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'node:fs';
 
-const { mealHours } = await import('../docs/js/data.js');
+const { mealHours, hallDayHours } = await import('../docs/js/data.js');
 
 let pass = 0; const fails = [];
 const ok = (name, cond, detail = '') => {
@@ -101,6 +101,66 @@ if (withHours.length === 0) {
   ok('hours are only published for meals the day actually serves',
     withHours.every((d) => Object.keys(d.hours).every((m) => d.meals.includes(m))));
 }
+
+console.log('\nthe hall list: open to close, one line per hall:');
+
+const dayLine = (hours) => hallDayHours({ days: [{ date: TUE, hall: SOUTH, hours }] }, SOUTH, TUE);
+
+ok('a term weekday collapses to a single range',
+  dayLine({ Breakfast: '7am-10:30am', Lunch: '10:30am-4pm', Dinner: '4pm-9pm' }) === '7am – 9pm',
+  `got ${dayLine({ Breakfast: '7am-10:30am', Lunch: '10:30am-4pm', Dinner: '4pm-9pm' })}`);
+
+ok('a brunch hall collapses the same way',
+  dayLine({ Brunch: '10am-4pm', Dinner: '4pm-9pm' }) === '10am – 9pm');
+
+// The whole reason for the change: on a Saturday one hall serves Brunch and the
+// next serves Lunch, and both still get a line.
+ok('a lunch hall on a brunch day still gets a line',
+  dayLine({ Breakfast: '8am-10:30am', Lunch: '10:30am-4pm', Dinner: '4pm-7pm' }) === '8am – 7pm');
+
+ok('a summer gap is kept, not papered over',
+  dayLine({ Breakfast: 'Closed', Lunch: '11am-1:30pm', Dinner: '5:30pm-6:30pm' })
+    === '11am – 1:30pm, 5:30pm – 6:30pm');
+
+ok('windows out of order still sort',
+  dayLine({ Dinner: '4pm-9pm', Breakfast: '7am-10:30am', Lunch: '10:30am-4pm' }) === '7am – 9pm');
+
+// Breakfast and dinner with no lunch between them is a genuine hole in the day,
+// not a formatting quirk, so it prints as two windows.
+ok('a missing middle meal reads as a gap',
+  dayLine({ Breakfast: '7am-10:30am', Dinner: '4pm-9pm' }) === '7am – 10:30am, 4pm – 9pm');
+
+ok('overlapping windows merge rather than repeat',
+  dayLine({ a: '11am-2pm', b: '1pm-4pm' }) === '11am – 4pm');
+
+ok('midnight is read as 12am, not noon',
+  dayLine({ Breakfast: '12am-3am', Dinner: '12pm-9pm' }) === '12am – 3am, 12pm – 9pm');
+
+ok('a fully closed hall says so', dayLine({ Breakfast: 'Closed', Dinner: 'Closed' }) === 'Closed');
+
+// UMD publishes TBD on dates it has not settled: 1,086 such cells across a year.
+ok('TBD is not a time and is never shown', dayLine({ Breakfast: 'TBD', Lunch: 'TBD' }) === null);
+ok('TBD alongside Closed still reads as closed',
+  dayLine({ Breakfast: 'TBD', Dinner: 'Closed' }) === 'Closed');
+ok('TBD alongside a real window shows only the window',
+  dayLine({ Breakfast: 'TBD', Dinner: '4pm-9pm' }) === '4pm – 9pm');
+
+ok('no hours key at all', hallDayHours({ days: [{ date: TUE, hall: SOUTH }] }, SOUTH, TUE) === null);
+ok('an unknown hall or date',
+  hallDayHours(index, 999, TUE) === null && hallDayHours(index, SOUTH, '2020-01-01') === null);
+
+console.log('\n  every hall-day in the real export:');
+
+const lines = real.days.map((d) => [d, hallDayHours(real, d.hall, d.date)]);
+const blank = lines.filter(([, v]) => v === null);
+console.log(`  (${lines.length} hall-days, ${blank.length} with no line`
+  + `${blank.length ? ' -- ' + [...new Set(blank.map(([d]) => d.date))].join(', ') : ''})`);
+
+ok('nothing malformed comes out of the real export',
+  lines.every(([, v]) => v === null || v === 'Closed' || /^\d/.test(v)));
+
+ok('every published day with hours produces a line',
+  real.days.filter((d) => d.hours).every((d) => hallDayHours(real, d.hall, d.date) !== null));
 
 console.log('\nwhat goes into the sheet is escaped:');
 

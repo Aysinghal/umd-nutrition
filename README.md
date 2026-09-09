@@ -35,7 +35,7 @@ Back end complete. Front end steps 1-11 built and live at
 <https://aysinghal.github.io/umd-nutrition/> — GitHub Pages serves `main` from
 `/docs`. A GitHub Action re-scrapes and republishes every day at 09:00 UTC.
 
-Front end tests are five Node scripts, 96 assertions:
+Front end tests are five Node scripts, 113 assertions:
 
 ```sh
 node scripts/sw-test.mjs        # service worker, against a fake network

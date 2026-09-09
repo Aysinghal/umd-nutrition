@@ -63,6 +63,60 @@ export function mealHours(index, hall, date, meal) {
   return raw === 'Closed' ? 'Closed' : raw.replace('-', ' – ');
 }
 
+const TIME = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i;
+
+function minutes(text) {
+  const m = TIME.exec(text.trim());
+  if (!m) return null;
+  let hour = Number(m[1]);
+  const pm = m[3].toLowerCase() === 'pm';
+  if (pm && hour !== 12) hour += 12;
+  if (!pm && hour === 12) hour = 0;
+  return hour * 60 + Number(m[2] || 0);
+}
+
+// One line for the whole day: when the hall opens to when it shuts.
+//
+// During term the meal windows run back to back -- breakfast ends at 10:30 and
+// lunch starts at 10:30 -- so they collapse into a single range. In summer they
+// don't: South Campus serves lunch to 1:30pm and dinner from 5:30pm, and printing
+// "11am - 6:30pm" would send you across campus to a locked door. So a real gap
+// survives, and both windows are printed.
+//
+// Asking the day rather than the current meal is what makes this work on a
+// weekend, when one hall is serving Brunch and another is serving Lunch.
+//
+// UMD's own wording is kept rather than re-rendered: "7am" stays "7am".
+export function hallDayHours(index, hall, date) {
+  const day = index.days.find((d) => d.hall === hall && d.date === date);
+  const values = day && day.hours ? Object.values(day.hours) : [];
+  if (!values.length) return null;
+
+  const spans = [];
+  for (const value of values) {
+    const at = String(value).indexOf('-');
+    // No dash means "Closed", or "TBD" on a date UMD has not settled yet.
+    if (at < 0) continue;
+    const from = String(value).slice(0, at).trim();
+    const to = String(value).slice(at + 1).trim();
+    const start = minutes(from);
+    const end = minutes(to);
+    if (start === null || end === null) continue;
+    spans.push({ start, end, from, to });
+  }
+  // Closed is an answer; anything else unreadable is not, and says nothing.
+  if (!spans.length) return values.includes('Closed') ? 'Closed' : null;
+
+  spans.sort((a, b) => a.start - b.start);
+  const merged = [spans[0]];
+  for (const span of spans.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (span.start > last.end) merged.push(span);
+    else if (span.end > last.end) { last.end = span.end; last.to = span.to; }
+  }
+  return merged.map((s) => `${s.from} – ${s.to}`).join(', ');
+}
+
 export function hasDay(index, hall, date) {
   return index.days.some((d) => d.hall === hall && d.date === date && d.status === 'ok');
 }

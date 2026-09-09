@@ -1,4 +1,4 @@
-import { loadIndex, loadItems, loadMenu, loadMenus, mealsFor, mealHours, hasDay, dataAgeDays } from './data.js';
+import { loadIndex, loadItems, loadMenu, loadMenus, mealsFor, mealHours, hallDayHours, hasDay, dataAgeDays } from './data.js';
 import { pick, panel, close as closeSheet, isOpen } from './sheet.js';
 import * as store from './store.js';
 import * as plate from './plate.js';
@@ -1098,16 +1098,13 @@ function openHallSheet() {
     current: state.hall,
     options: state.index.halls
       .filter((h) => hasDay(state.index, h.id, state.date))
-      .map((h) => {
-        // The meal you're on, at that hall. Deciding where to walk at 8:45pm is a
-        // question about one meal, and three lines per hall would bury the answer.
-        const hours = mealHours(state.index, h.id, state.date, state.meal);
-        return {
-          value: h.id,
-          label: h.name,
-          note: hours && `${state.meal} ${hours.toLowerCase() === 'closed' ? 'closed' : hours}`,
-        };
-      }),
+      // Open to close, not the meal you happen to be on. Every hall gets a time
+      // that way, including one serving Lunch on a day you are looking at Brunch.
+      .map((h) => ({
+        value: h.id,
+        label: h.name,
+        note: hallDayHours(state.index, h.id, state.date),
+      })),
     onPick: setHall,
   });
 }

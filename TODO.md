@@ -1,6 +1,6 @@
 # What's left
 
-Last updated 2026-09-01. Steps 1–11 of the front end are built and live; the back
+Last updated 2026-09-09. Steps 1–11 of the front end are built and live; the back
 end is done. This is everything still open.
 
 For how the data actually moves, see [DATA-FLOW.md](DATA-FLOW.md).
@@ -9,8 +9,8 @@ For how the data actually moves, see [DATA-FLOW.md](DATA-FLOW.md).
 
 ## 0. Use it on a phone — this outranks everything below
 
-Four steps shipped without a single one being touched in a dining hall. **The real
-bug list comes from here, not from this file.**
+Used in a dining hall once or twice as of 2026-09-09, but never deliberately
+against the list below. **The real bug list comes from here, not from this file.**
 
 Specifically unverified, because there's no headless browser and gestures, taps,
 keyboard and layout genuinely cannot be tested from here:
@@ -20,6 +20,7 @@ keyboard and layout genuinely cannot be tested from here:
       day — that's the 163 KB prefetch either working or not
 - [ ] Does long-press on a row feel right at 450 ms, and does it avoid also firing a tap
 - [ ] **Does the long-press highlight bug stay fixed** (shipped 2026-09-01, VERSION 12)
+- [ ] Do the hours read right on the meal list and the hall list (VERSION 14)
 - [ ] Does the search keyboard behave, and does the 16px input stop iOS zooming on focus
 - [ ] Does the date strip scroll sideways and centre today
 - [ ] Does the save prompt fire when expected and not nag
@@ -42,78 +43,62 @@ Two data points still owed from the original plan:
 
 ---
 
-## 1. Is history retention working? — check the morning of 2026-09-02
+## 1. History retention — RESOLVED, it works
 
-**Time-sensitive.** Aug 31 disappeared from `index.json` one day after being
-scraped, when it should have lasted 31 days.
+Checked 2026-09-09. The window is filling out by one day each morning, exactly as
+hoped:
 
-Likely cause: the scraper's database lives in a GitHub Actions cache, not the
-repo. The first automated run found no cache, started from an empty database, and
-wrote only today-plus-seven. The original data came from a local run.
-
-**The test: after the next scrape, is `2026-09-01` still in `index.json`?**
-
-- **Still there** → the cache is working. The window fills out by one day each
-  morning. Nothing to do.
-- **Gone** → retention is broken. The date strip stays stuck at 7 days forever and
-  step 11's saved-plate history has nothing to show. Needs a real fix — probably
-  keeping the database somewhere that isn't an ephemeral cache.
-
-Either way: **the entire 31 days of history hangs on that Actions cache
-surviving.** If it's ever evicted, history resets to 7 days. That's a thin thread
-for a shipped feature.
-
----
-
-## 2. Dining hall hours → the data  *(built 2026-09-01 — lands with the next scrape)*
-
-Back end only. **Nothing visible changes.** The code is merged; the hours appear
-in the live `index.json` after the next Action run, since exports are the
-Action's job.
-
-Fetch the hours during the daily scrape and publish them in `index.json`:
-
-```json
-{ "date": "2026-09-01", "hall": 51, "meals": ["Breakfast","Lunch","Dinner"],
-  "hours": { "Breakfast": "8am-10:30am", "Lunch": "10:30am-4pm", "Dinner": "4pm-10pm" } }
+```
+Sep 1    7 days
+Sep 9   15 days     Sep 1 -> Sep 15, and Sep 1 is still there
 ```
 
-Source: the public Google Sheet that dining.umd.edu itself reads — per hall, per
-meal, per date, a year ahead. **They are not on nutrition.umd.edu at all**; that
-site has zero time strings anywhere.
+The Actions cache is surviving between runs. It will cap at 31 days. Aug 31 was
+lost because the first automated run started from an empty database, which is a
+one-off, not a recurring fault.
 
-~1 KB total, inside a file the app already downloads and already caches offline.
-
-- New `umd_nutrition/hours.py`, one small table in `db.py`, a call in `scrape.py`,
-  a few lines in `export.py`, new `tests/test_hours.py` with a saved copy of the
-  sheet so it runs offline. No new dependencies.
-- Stored in the database rather than fetched at export time, so the export keeps
-  its no-network property — and if Google is down one morning you publish
-  yesterday's hours instead of none.
-- **Brunch is derived** (breakfast-start → lunch-end); the sheet has no Brunch row.
-- **`Closed` is stored as-is** so step 3 can use it.
-- Hours are published **only for meals a day actually serves**, so a weekend
-  Brunch hall ships Brunch + Dinner, never Breakfast + Lunch.
-- A day with no hours gets **no `hours` key at all** — the app must read a missing
-  key as "unknown", never as "closed".
-- Verified against the real sheet: costs **+1.5 KB raw, +84 bytes gzipped**.
+**The thin thread remains:** all of that history still lives in a GitHub Actions
+cache with no durability guarantee. If it is ever evicted, history resets to 7
+days and refills from scratch. Worth a real fix eventually, not urgent.
 
 ---
 
-## 3. Show the hours in the sheets  *(built 2026-09-01 — blank until the next scrape)*
+## 2 + 3. Dining hall hours — SHIPPED and live
 
-Front end. The pick sheet already renders a subtitle per option, so this is
-filling in a field that exists rather than new UI.
+Verified against the live site 2026-09-09: **42 of 45 hall-days carry hours.**
 
-- Meal sheet: each meal gets its window underneath.
-- Hall sheet: each hall gets today's hours, and can say when a hall is **closed**.
-- `o.note` went into the sheet as **raw HTML, unescaped**. Now escaped in
-  `sheet.js`, which covers every caller rather than each call site.
+```
+Wednesday   South Campus   Breakfast 7am-10:30am  Lunch 10:30am-4pm  Dinner 4pm-9pm
+            251 North      Breakfast 8am-10:30am  Lunch 10:30am-4pm  Dinner 4pm-10pm
+Saturday    South Campus   Brunch 10am-4pm        Dinner 4pm-9pm       <- derived
+            251 North      Breakfast 8am-10:30am  Lunch 10:30am-4pm  Dinner 4pm-7pm
+```
 
-**Known gap, deliberate:** the hall sheet shows the hours for the meal you are
-currently on. On a weekend at noon that means South Campus and Yahentamitsi show
-*Brunch 10am – 4pm* while 251 North shows nothing, because it serves Lunch, not
-Brunch. Left as-is until it actually annoys you in a dining hall.
+Only 2026-09-01 lacks hours: it was already in the past when the feature shipped,
+so it was never in a scrape window. It rolls off the back on its own.
+
+**Where the data comes from:** the public Google Sheet dining.umd.edu reads in the
+browser. nutrition.umd.edu has no times on it at all. Fetched during the scrape,
+stored in `hall_hours`, pruned with menu days, published inside `index.json`
+(+1.5 KB raw, +84 bytes gzipped).
+
+**What the app shows:**
+
+- **Meal list** — each meal with its own window.
+- **Hall list** — open to close for the whole day, one line per hall
+  (`South Campus  7am – 9pm`). Deliberately *not* the current meal: asking the
+  day rather than the meal is what lets a Brunch hall and a Lunch hall both get a
+  line on the same Saturday.
+- A summer day with a real hole prints both windows rather than one misleading
+  range: `11am – 1:30pm, 5:30pm – 6:30pm`. During term there are no gaps at all
+  (0 of 351 hall-days Jan-Apr and Sep-Oct); in summer every day has one.
+- `Closed` is shown. **`TBD` is not** — UMD publishes it on dates it has not
+  settled, 1,086 cells across a year, and it must never render as a time.
+- A missing key means *unknown*, never *closed*. No line rather than a wrong one.
+
+Verified over all 1,179 hall-days in a year of the real sheet: zero malformed
+output. `sheet.js` also now escapes what it renders, since these strings come from
+a spreadsheet other people edit.
 
 ---
 
@@ -208,6 +193,16 @@ The two options, honestly:
   database down too. The growing part is also the useless part — menu HTML is
   never read back, since menu pages always bypass the cache on the way in.
   Fix is small: stop writing menu pages to the cache, or prune them by date.
+- **The scrape runs about four hours late.** Scheduled 09:00 UTC, actually fires
+  around 13:00 UTC (9am Eastern) on every run so far. GitHub delays scheduled jobs
+  on free runners and promises nothing. It still lands before breakfast service
+  ends at 10:30am, but with little room. If it ever slips further, schedule it
+  earlier to absorb the drift.
+- **UMD's site goes down sometimes.** Two of nine runs failed (Sep 4, Sep 8),
+  both `ConnectTimeout` after four retries. That is the intended behaviour: the
+  job fails loudly, publishes nothing, and the previous day's data stays live.
+  Both dates were captured anyway on other runs, since every run scrapes a
+  seven-day window. No action needed.
 - **Label pages are fetched once ever and never re-checked.** If UMD corrects a
   recipe's nutrition, we will never notice.
 - **Diet classification is frozen at first sight.** Improving `diet.py` changes
